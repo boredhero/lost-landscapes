@@ -48,12 +48,10 @@
     "typescript-eslint": "^8.57.0",
     "vite": "^8.0.1"
   },
-  "pnpm": {
-    "overrides": {
-      "@luma.gl/core": "9.1.10",
-      "@luma.gl/engine": "9.1.10",
-      "@luma.gl/shadertools": "9.1.10",
-      "@luma.gl/webgl": "9.1.10"
-    }
+  "overrides": {
+    "@luma.gl/core": "9.1.10",
+    "@luma.gl/engine": "9.1.10",
+    "@luma.gl/shadertools": "9.1.10",
+    "@luma.gl/webgl": "9.1.10"
   }
 }
