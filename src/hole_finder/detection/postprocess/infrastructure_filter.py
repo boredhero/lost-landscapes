@@ -117,6 +117,8 @@ def filter_candidates_by_infrastructure(
     Springs are exempt from water filtering only (still rejected by road/rail/landuse).
     """
     log.debug("infrastructure_filter_start", candidate_count=len(candidates), bbox=f"{west},{south},{east},{north}")
+    if not candidates:
+        return []
     infra = fetch_infrastructure_polygons(west, south, east, north)
     all_road = infra["roads"]
     all_water = infra["water"]

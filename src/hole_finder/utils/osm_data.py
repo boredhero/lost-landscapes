@@ -23,12 +23,12 @@ from shapely.geometry import LineString, Polygon
 from hole_finder.config import settings
 from hole_finder.utils.log_manager import log
 
-# Serialize `osmium extract` calls. Each extract reads from the 12 GB US PBF;
-# parallel extracts (one per tile × {buildings,roads,water,rail,landuse}) thrash
-# disk I/O on the same large file and many cross the 180s timeout. A single
-# extract takes ~24s on this hardware, so serializing across the worker is
-# strictly faster than the previous parallel-and-time-out behavior. Export is
-# NOT serialized — it operates on tiny per-tile clip files with negligible I/O.
+# Serialize `osmium extract` calls. Each extract re-scans a whole state PBF
+# (~13s); parallel extracts thrash disk I/O on the same large file and many
+# cross the 180s timeout, so serializing is strictly faster. The clip is now
+# made ONCE per grid cell (see _ensure_clip) and reused by all feature types,
+# so extracts are rare. Export is NOT serialized — it runs against a tiny
+# per-grid-cell clip file with negligible I/O.
 _OSMIUM_EXTRACT_LOCK = threading.Semaphore(1)
 
 GEOFABRIK_US_URL = "https://download.geofabrik.de/north-america/us-latest.osm.pbf"
@@ -47,6 +47,7 @@ STATE_PBFS: dict[str, tuple[tuple[float, float, float, float], str]] = {
     "california":     ((-124.41, 32.53, -114.13, 42.01), "california-latest.osm.pbf"),
 }
 CACHE_DIR = settings.data_dir / "cache" / "osm"
+CLIP_CACHE_DIR = CACHE_DIR / "clips"  # one osmium clip per grid cell, shared by all feature types
 CACHE_TTL_S = 30 * 86400  # 30 days
 GRID_SIZE = 0.05  # ~5km grid cells for cache key quantization
 OSMIUM_CONFIGS_DIR = Path("/app/configs/osmium") if Path("/app/configs/osmium").exists() else Path(__file__).resolve().parent.parent.parent.parent / "configs" / "osmium"
@@ -125,46 +126,64 @@ def _resolve_pbf_path(west: float, south: float, east: float, north: float) -> P
     return PBF_PATH
 
 
-def _extract_geojson(west: float, south: float, east: float, north: float, config_name: str) -> gpd.GeoDataFrame | None:
-    """Extract features from PBF using osmium CLI. Returns GeoDataFrame or None."""
+def _clip_cache_path(grid_cell: str) -> Path:
+    """Path to the cached osmium clip for a grid cell (one clip shared by every feature type)."""
+    key = hashlib.md5(grid_cell.encode()).hexdigest()[:16]
+    return CLIP_CACHE_DIR / f"clip_{key}.osm.pbf"
+
+
+def _ensure_clip(west: float, south: float, east: float, north: float, grid_cell: str) -> Path | None:
+    """Clip the grid-cell bbox out of the state PBF exactly once and reuse it for every feature type.
+    The `osmium extract` step re-scans the whole state PBF (~13s); doing it once per grid cell instead
+    of once per (tile x feature type) is the dominant pipeline speedup. The clip is cached on disk with
+    the same TTL as the feature cache. Extraction stays serialized via _OSMIUM_EXTRACT_LOCK."""
+    clip_path = _clip_cache_path(grid_cell)
+    if clip_path.exists() and (time.time() - clip_path.stat().st_mtime) <= CACHE_TTL_S:
+        return clip_path
     pbf_path = _resolve_pbf_path(west, south, east, north)
     if not pbf_path.exists():
         log.warning("osm_pbf_missing", path=str(pbf_path), hint="Download from Geofabrik: wget -O {path} {url}".format(path=pbf_path, url=GEOFABRIK_US_URL))
         return None
+    CLIP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    extract_cmd = ["osmium", "extract", "--bbox", f"{west},{south},{east},{north}", "--strategy=smart", "--overwrite", "-o", str(clip_path), str(pbf_path)]
+    with _OSMIUM_EXTRACT_LOCK:
+        if clip_path.exists() and (time.time() - clip_path.stat().st_mtime) <= CACHE_TTL_S:
+            return clip_path
+        t0 = time.perf_counter()
+        try:
+            result = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            log.error("osmium_extract_timeout", bbox=f"{west},{south},{east},{north}", timeout_s=180)
+            return None
+        except FileNotFoundError:
+            log.error("osmium_not_installed", hint="apt-get install osmium-tool")
+            return None
+        if result.returncode != 0:
+            log.error("osmium_extract_failed", returncode=result.returncode, stderr=result.stderr[:500])
+            clip_path.unlink(missing_ok=True)
+            return None
+        log.info("osm_clip_created", pbf=pbf_path.name, grid_cell=grid_cell, elapsed_ms=round((time.perf_counter() - t0) * 1000, 1))
+    return clip_path
+
+
+def _export_from_clip(clip_path: Path, config_name: str) -> gpd.GeoDataFrame | None:
+    """Run `osmium export` (tag filter) against a pre-made clip. Cheap and unserialized — the clip is tiny."""
     config_path = OSMIUM_CONFIGS_DIR / f"{config_name}.json"
     if not config_path.exists():
         log.error("osmium_config_missing", config=config_name, path=str(config_path))
         return None
     t0 = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="osm_") as tmpdir:
-        clip_path = Path(tmpdir) / "clip.osm.pbf"
         geojson_path = Path(tmpdir) / "features.geojson"
-        # Step 1: Extract bbox from PBF (serialized — see _OSMIUM_EXTRACT_LOCK).
-        log.debug("osm_using_pbf", pbf=pbf_path.name, bbox=f"{west},{south},{east},{north}")
-        extract_cmd = ["osmium", "extract", "--bbox", f"{west},{south},{east},{north}", "--strategy=smart", "--overwrite", "-o", str(clip_path), str(pbf_path)]
-        with _OSMIUM_EXTRACT_LOCK:
-            try:
-                result = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=180)
-                if result.returncode != 0:
-                    log.error("osmium_extract_failed", returncode=result.returncode, stderr=result.stderr[:500])
-                    return None
-            except subprocess.TimeoutExpired:
-                log.error("osmium_extract_timeout", bbox=f"{west},{south},{east},{north}", timeout_s=180)
-                return None
-            except FileNotFoundError:
-                log.error("osmium_not_installed", hint="apt-get install osmium-tool")
-                return None
-        # Step 2: Export to GeoJSON with tag filter
         export_cmd = ["osmium", "export", "--config", str(config_path), "--overwrite", "-o", str(geojson_path), "-f", "geojson", str(clip_path)]
         try:
             result = subprocess.run(export_cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
-                log.error("osmium_export_failed", config=config_name, returncode=result.returncode, stderr=result.stderr[:500])
-                return None
         except subprocess.TimeoutExpired:
             log.error("osmium_export_timeout", config=config_name)
             return None
-        # Step 3: Read GeoJSON with geopandas
+        if result.returncode != 0:
+            log.error("osmium_export_failed", config=config_name, returncode=result.returncode, stderr=result.stderr[:500])
+            return None
         if not geojson_path.exists() or geojson_path.stat().st_size < 10:
             log.debug("osmium_export_empty", config=config_name)
             return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
@@ -173,9 +192,17 @@ def _extract_geojson(west: float, south: float, east: float, north: float, confi
         except Exception as e:
             log.warning("osmium_geojson_read_failed", config=config_name, error=str(e))
             return None
-    elapsed = time.perf_counter() - t0
-    log.info("osm_extract_complete", config=config_name, features=len(gdf), elapsed_ms=round(elapsed * 1000, 1), bbox=f"{west},{south},{east},{north}")
+    log.info("osm_extract_complete", config=config_name, features=len(gdf), elapsed_ms=round((time.perf_counter() - t0) * 1000, 1))
     return gdf
+
+
+def _extract_geojson(west: float, south: float, east: float, north: float, config_name: str) -> gpd.GeoDataFrame | None:
+    """Get features for one tag config: clip the bbox once (cached, shared across configs) then export."""
+    grid_cell = _grid_cell(west, south, east, north)
+    clip_path = _ensure_clip(west, south, east, north, grid_cell)
+    if clip_path is None:
+        return None
+    return _export_from_clip(clip_path, config_name)
 
 
 def _get_geometries(west: float, south: float, east: float, north: float, feature_type: str, config_name: str, tag_filter: dict | None = None) -> list:

@@ -35,6 +35,8 @@ def test_osmium_extract_lock_serializes_concurrent_calls(tmp_path, monkeypatch):
     (tmp_path / "fake.pbf").write_bytes(b"")  # exists, contents irrelevant (subprocess is mocked)
     monkeypatch.setattr(osm_data, "OSMIUM_CONFIGS_DIR", tmp_path)
     (tmp_path / "roads.json").write_text("{}")  # config exists
+    # Isolate the clip cache so each call re-runs extract (mocked extract never writes a clip file)
+    monkeypatch.setattr(osm_data, "CLIP_CACHE_DIR", tmp_path / "clips")
 
     # Each fake subprocess.run sleeps 50ms to make windows measurable
     windows: list[tuple[float, float, str]] = []
@@ -93,6 +95,7 @@ def test_osmium_export_is_NOT_serialized_intentionally(tmp_path, monkeypatch):
     (tmp_path / "fake.pbf").write_bytes(b"")
     monkeypatch.setattr(osm_data, "OSMIUM_CONFIGS_DIR", tmp_path)
     (tmp_path / "roads.json").write_text("{}")
+    monkeypatch.setattr(osm_data, "CLIP_CACHE_DIR", tmp_path / "clips")
 
     overlap_observed = threading.Event()
     in_export = threading.Lock()
