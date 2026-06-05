@@ -33,6 +33,19 @@ _OSMIUM_EXTRACT_LOCK = threading.Semaphore(1)
 
 GEOFABRIK_US_URL = "https://download.geofabrik.de/north-america/us-latest.osm.pbf"
 PBF_PATH = settings.data_dir / "osm" / "us-latest.osm.pbf"
+# Approximate state bounding boxes (west, south, east, north) for PBF routing.
+# PA west extended to -80.60 to fully cover the Pittsburgh metro tiles.
+STATE_PBFS: dict[str, tuple[tuple[float, float, float, float], str]] = {
+    "pennsylvania":   ((-80.60, 39.72, -74.69, 42.27), "pennsylvania-latest.osm.pbf"),
+    "west-virginia":  ((-82.64, 37.20, -77.72, 40.64), "west-virginia-latest.osm.pbf"),
+    "ohio":           ((-84.82, 38.40, -80.52, 41.98), "ohio-latest.osm.pbf"),
+    "new-york":       ((-79.76, 40.50, -71.85, 45.01), "new-york-latest.osm.pbf"),
+    "north-carolina": ((-84.32, 33.84, -75.46, 36.59), "north-carolina-latest.osm.pbf"),
+    "maryland":       ((-79.49, 37.91, -75.05, 39.72), "maryland-latest.osm.pbf"),
+    "massachusetts":  ((-73.51, 41.24, -69.93, 42.89), "massachusetts-latest.osm.pbf"),
+    "louisiana":      ((-94.04, 28.92, -88.82, 33.02), "louisiana-latest.osm.pbf"),
+    "california":     ((-124.41, 32.53, -114.13, 42.01), "california-latest.osm.pbf"),
+}
 CACHE_DIR = settings.data_dir / "cache" / "osm"
 CACHE_TTL_S = 30 * 86400  # 30 days
 GRID_SIZE = 0.05  # ~5km grid cells for cache key quantization
@@ -98,10 +111,25 @@ def _set_cached(feature_type: str, grid_cell: str, geometries: list) -> None:
         log.warning("osm_cache_write_failed", feature_type=feature_type, error=str(e))
 
 
+def _resolve_pbf_path(west: float, south: float, east: float, north: float) -> Path:
+    """Return the smallest available PBF covering the bbox center, else us-latest fallback."""
+    cx = (west + east) / 2
+    cy = (south + north) / 2
+    for state, (bounds, fname) in STATE_PBFS.items():
+        sw, ss, se, sn = bounds
+        if sw <= cx <= se and ss <= cy <= sn:
+            candidate = settings.data_dir / "osm" / fname
+            if candidate.exists():
+                return candidate
+            log.debug("osm_state_pbf_missing", state=state, path=str(candidate), fallback="us-latest.osm.pbf")
+    return PBF_PATH
+
+
 def _extract_geojson(west: float, south: float, east: float, north: float, config_name: str) -> gpd.GeoDataFrame | None:
-    """Extract features from US PBF using osmium CLI. Returns GeoDataFrame or None."""
-    if not PBF_PATH.exists():
-        log.warning("osm_pbf_missing", path=str(PBF_PATH), hint="Download from Geofabrik: wget -O {path} {url}".format(path=PBF_PATH, url=GEOFABRIK_US_URL))
+    """Extract features from PBF using osmium CLI. Returns GeoDataFrame or None."""
+    pbf_path = _resolve_pbf_path(west, south, east, north)
+    if not pbf_path.exists():
+        log.warning("osm_pbf_missing", path=str(pbf_path), hint="Download from Geofabrik: wget -O {path} {url}".format(path=pbf_path, url=GEOFABRIK_US_URL))
         return None
     config_path = OSMIUM_CONFIGS_DIR / f"{config_name}.json"
     if not config_path.exists():
@@ -112,7 +140,8 @@ def _extract_geojson(west: float, south: float, east: float, north: float, confi
         clip_path = Path(tmpdir) / "clip.osm.pbf"
         geojson_path = Path(tmpdir) / "features.geojson"
         # Step 1: Extract bbox from PBF (serialized — see _OSMIUM_EXTRACT_LOCK).
-        extract_cmd = ["osmium", "extract", "--bbox", f"{west},{south},{east},{north}", "--strategy=smart", "--overwrite", "-o", str(clip_path), str(PBF_PATH)]
+        log.debug("osm_using_pbf", pbf=pbf_path.name, bbox=f"{west},{south},{east},{north}")
+        extract_cmd = ["osmium", "extract", "--bbox", f"{west},{south},{east},{north}", "--strategy=smart", "--overwrite", "-o", str(clip_path), str(pbf_path)]
         with _OSMIUM_EXTRACT_LOCK:
             try:
                 result = subprocess.run(extract_cmd, capture_output=True, text=True, timeout=180)
