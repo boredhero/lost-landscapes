@@ -150,7 +150,6 @@ function DeckGLOverlay(props: { layers: any[] }) {
 function TerrainController() {
   const { current: mapRef } = useMap();
   const show3DTerrain = useStore((s) => s.show3DTerrain);
-  const terrainReady = useStore((s) => s.terrainReady);
   const terrainExaggeration = useStore((s) => s.terrainExaggeration);
   const basemap = useStore((s) => s.basemap);
   const exaggerationRef = useRef(terrainExaggeration);
@@ -166,7 +165,11 @@ function TerrainController() {
             try { map.addSource('terrain-source', TERRAIN_SOURCE); } catch { /* race */ }
           }
           if (!map.getSource('terrain-source')) return;
-          if (show3DTerrain && terrainReady) {
+          // Terrain DEMs are permanent (VRT mosaic of all processed tiles) with a
+          // global AWS fallback, so terrain is always servable — render it whenever
+          // 3D is enabled instead of gating on a per-session warm flag. MapLibre
+          // pulls tiles lazily; areas without data fall back to AWS global terrain.
+          if (show3DTerrain) {
             map.setTerrain({ source: 'terrain-source', exaggeration: exaggerationRef.current });
           } else {
             map.setTerrain(null);
@@ -177,11 +180,11 @@ function TerrainController() {
     applyTerrain();
     map.on('style.load', applyTerrain);
     return () => { map.off('style.load', applyTerrain); };
-  }, [mapRef, show3DTerrain, terrainReady, basemap]);
+  }, [mapRef, show3DTerrain, basemap]);
   // Debounced exaggeration updates — prevents NaN crash from rapid slider changes
   useEffect(() => {
     const map = mapRef?.getMap();
-    if (!map || !show3DTerrain || !terrainReady) return;
+    if (!map || !show3DTerrain) return;
     const timer = setTimeout(() => {
       try {
         if (map.isStyleLoaded() && map.getSource('terrain-source')) {
@@ -190,7 +193,7 @@ function TerrainController() {
       } catch { /* suppress during transitions */ }
     }, 150);
     return () => clearTimeout(timer);
-  }, [terrainExaggeration, mapRef, show3DTerrain, terrainReady]);
+  }, [terrainExaggeration, mapRef, show3DTerrain]);
   return null;
 }
 
