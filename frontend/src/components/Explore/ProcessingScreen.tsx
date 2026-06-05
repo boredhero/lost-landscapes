@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const STAGES = [
-  { key: 'discovering', label: 'Downloading terrain data...' },
+  { key: 'discovering', label: 'Finding available LiDAR tiles...' },
   { key: 'downloading', label: 'Downloading terrain data...' },
   { key: 'analyzing', label: 'Detecting underground features...' },
-  { key: 'finishing', label: 'Almost done!' },
+  { key: 'finishing', label: 'Finalizing results...' },
 ];
 
 const FUN_FACTS = [
@@ -156,11 +156,14 @@ interface ProcessingScreenProps {
   stage: string | null;
   source: string | null;
   downloadMb: number | null;
+  tilesDone: number | null;
+  tilesTotal: number | null;
+  detectionsSoFar: number | null;
   error: string | null;
   onRetry: () => void;
 }
 
-export default function ProcessingScreen({ progress, stage, source, downloadMb, error, onRetry }: ProcessingScreenProps) {
+export default function ProcessingScreen({ progress, stage, source, downloadMb, tilesDone, tilesTotal, detectionsSoFar, error, onRetry }: ProcessingScreenProps) {
   const [factIndex, setFactIndex] = useState(() => Math.floor(Math.random() * FUN_FACTS.length));
   const [, setSeenIndices] = useState<Set<number>>(() => new Set());
   const [factVisible, setFactVisible] = useState(true);
@@ -229,9 +232,21 @@ export default function ProcessingScreen({ progress, stage, source, downloadMb, 
             style={{ width: `${Math.max(progress, 2)}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-sm text-slate-400 font-mono mb-10">
+        <div className="flex items-center justify-between text-sm text-slate-400 font-mono mb-2">
           <span>{Math.round(progress)}%</span>
-          {downloadMb != null && <span>{downloadMb} MB downloaded</span>}
+          {downloadMb != null && <span>{downloadMb.toLocaleString()} MB downloaded</span>}
+        </div>
+        <div className="flex items-center justify-between text-sm font-mono mb-8" style={{ minHeight: '1.25rem' }}>
+          {tilesDone != null && tilesTotal != null && tilesTotal > 0 ? (
+            <span className="text-slate-400">Tile {tilesDone} of {tilesTotal}</span>
+          ) : (
+            <span />
+          )}
+          {detectionsSoFar != null && detectionsSoFar > 0 ? (
+            <span className="text-hotpink-400 font-semibold">{detectionsSoFar.toLocaleString()} detection{detectionsSoFar !== 1 ? 's' : ''} found</span>
+          ) : (
+            <span />
+          )}
         </div>
 
         {/* Fun fact */}

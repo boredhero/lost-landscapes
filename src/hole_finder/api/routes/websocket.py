@@ -77,6 +77,9 @@ async def job_progress_ws(websocket: WebSocket):
                         "source": summary.get("source"),
                         "total_detections": summary.get("total_detections"),
                         "download_mb": summary.get("download_mb"),
+                        "tiles_done": summary.get("tiles_done"),
+                        "tiles_total": summary.get("tiles_total"),
+                        "detections_so_far": summary.get("detections_so_far"),
                     })
                 if updates:
                     log.debug("ws_job_updates_sent", job_count=len(updates), elapsed_ms=round((time.perf_counter() - t0) * 1000, 1))

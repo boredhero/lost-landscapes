@@ -9,6 +9,9 @@ interface JobProgress {
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | null;
   totalDetections: number | null;
   downloadMb: number | null;
+  tilesDone: number | null;
+  tilesTotal: number | null;
+  detectionsSoFar: number | null;
   error: string | null;
 }
 
@@ -30,6 +33,9 @@ export function useJobProgress(jobId: string | null): JobProgress {
     status: null,
     totalDetections: null,
     downloadMb: null,
+    tilesDone: null,
+    tilesTotal: null,
+    detectionsSoFar: null,
     error: null,
   });
 
@@ -41,6 +47,9 @@ export function useJobProgress(jobId: string | null): JobProgress {
       status: job.status?.toUpperCase() || null,
       totalDetections: job.total_detections ?? null,
       downloadMb: job.download_mb ?? null,
+      tilesDone: job.tiles_done ?? null,
+      tilesTotal: job.tiles_total ?? null,
+      detectionsSoFar: job.detections_so_far ?? null,
       error: job.error_message || null,
     };
     setState(newState);
@@ -67,7 +76,7 @@ export function useJobProgress(jobId: string | null): JobProgress {
 
   useEffect(() => {
     if (!jobId) {
-      setState({ progress: 0, stage: null, source: null, status: null, totalDetections: null, downloadMb: null, error: null });
+      setState({ progress: 0, stage: null, source: null, status: null, totalDetections: null, downloadMb: null, tilesDone: null, tilesTotal: null, detectionsSoFar: null, error: null });
       return;
     }
 

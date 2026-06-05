@@ -369,7 +369,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                                     if job:
                                         pct = 10 + (_dl_done / tile_limit) * 30
                                         job.progress = pct
-                                        job.result_summary = {"stage": "downloading", "source": source_name, "download_mb": dl_so_far, "downloaded": _dl_done, "tile_limit": tile_limit}
+                                        job.result_summary = {"stage": "downloading", "source": source_name, "download_mb": dl_so_far, "downloaded": _dl_done, "tile_limit": tile_limit, "tiles_done": _dl_done, "tiles_total": tile_limit, "detections_so_far": 0}
                                         await session.commit()
                             except Exception as _prog_err:
                                 log.debug("download_progress_update_failed", tile=tile.filename, error=str(_prog_err)[:200])
@@ -667,10 +667,14 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                         # Update progress
                         pct = 40 + (len(tile_results) / len(downloaded)) * 55
                         tile_stage = "finishing" if pct > 90 else "analyzing"
-                        _update_job("RUNNING", pct,
-                                    f"Processed {len(tile_results)}/{len(downloaded)} tiles, "
-                                    f"{total_detections} detections so far",
-                                    stage=tile_stage)
+                        _update_job("RUNNING", pct, summary={
+                            "stage": tile_stage,
+                            "source": source_name,
+                            "download_mb": dl_mb,
+                            "tiles_done": len(tile_results),
+                            "tiles_total": len(downloaded),
+                            "detections_so_far": total_detections,
+                        })
                     except Exception as e:
                         log.error("tile_thread_failed", index=idx, error=str(e), exception=True)
                         tile_results.append({"index": idx, "error": str(e)})
