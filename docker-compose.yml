@@ -1,16 +1,16 @@
 services:
   db:
     image: postgis/postgis:16-3.4
-    container_name: hole-finder-db
+    container_name: lost-landscapes-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: hole_finder
-      POSTGRES_USER: hole_finder
+      POSTGRES_DB: lost_landscapes
+      POSTGRES_USER: lost_landscapes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports:
       - "192.168.1.111:5432:5432"
     volumes:
-      - hole_finder_pgdata:/var/lib/postgresql/data
+      - lost_landscapes_pgdata:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     command:
       - postgres
@@ -23,24 +23,24 @@ services:
       - -c
       - max_connections=100
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hole_finder"]
+      test: ["CMD-SHELL", "pg_isready -U lost_landscapes"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: hole-finder-redis
+    container_name: lost-landscapes-redis
     restart: unless-stopped
     ports:
       - "192.168.1.111:6379:6379"
     volumes:
-      - hole_finder_redis:/data
+      - lost_landscapes_redis:/data
     command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
 
   flower:
     image: mher/flower:2.0
-    container_name: hole-finder-flower
+    container_name: lost-landscapes-flower
     restart: unless-stopped
     ports:
       - "192.168.1.111:5555:5555"
@@ -52,5 +52,5 @@ services:
       - monitoring
 
 volumes:
-  hole_finder_pgdata:
-  hole_finder_redis:
+  lost_landscapes_pgdata:
+  lost_landscapes_redis:

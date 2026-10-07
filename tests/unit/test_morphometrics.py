@@ -3,15 +3,13 @@
 import numpy as np
 import pytest
 
-from hole_finder.detection.postprocess.morphometrics import (
+from lost_landscapes.detection.postprocess.morphometrics import (
     compute_area,
     compute_circularity,
     compute_depth,
     compute_elongation,
     compute_k_parameter,
-    compute_perimeter,
     compute_volume,
-    compute_wall_slope,
 )
 
 

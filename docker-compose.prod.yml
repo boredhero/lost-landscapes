@@ -5,16 +5,16 @@
 services:
   db:
     image: postgis/postgis:16-3.4
-    container_name: hole-finder-db
+    container_name: lost-landscapes-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: hole_finder
-      POSTGRES_USER: hole_finder
+      POSTGRES_DB: lost_landscapes
+      POSTGRES_USER: lost_landscapes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - hole_finder_pgdata:/var/lib/postgresql/data
+      - lost_landscapes_pgdata:/var/lib/postgresql/data
     command:
       - postgres
       - -c
@@ -24,36 +24,36 @@ services:
       - -c
       - effective_cache_size=48GB
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hole_finder"]
+      test: ["CMD-SHELL", "pg_isready -U lost_landscapes"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: hole-finder-redis
+    container_name: lost-landscapes-redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
-      - hole_finder_redis:/data
+      - lost_landscapes_redis:/data
     command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
 
   api:
-    image: ghcr.io/boredhero/hole-finder:latest
-    container_name: hole-finder-api
+    image: ghcr.io/boredhero/lost-landscapes:latest
+    container_name: lost-landscapes-api
     restart: unless-stopped
     ports:
       - "0.0.0.0:9747:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://hole_finder:${POSTGRES_PASSWORD:-changeme}@db:5432/hole_finder
+      DATABASE_URL: postgresql+asyncpg://lost_landscapes:${POSTGRES_PASSWORD:-changeme}@db:5432/lost_landscapes
       REDIS_URL: redis://redis:6379/0
-      DATA_DIR: /data/hole-finder
+      DATA_DIR: /data/lost-landscapes
       PROJ_NETWORK: "OFF"
     volumes:
       - ./configs:/app/configs:ro
-      - hole_finder_logs:/app/logs
-      - /data/hole-finder:/data/hole-finder
+      - lost_landscapes_logs:/app/logs
+      - /data/lost-landscapes:/data/lost-landscapes
     depends_on:
       db:
         condition: service_healthy
@@ -69,21 +69,21 @@ services:
       - "autoheal=true"
 
   celery-worker:
-    image: ghcr.io/boredhero/hole-finder:latest
-    container_name: hole-finder-worker
+    image: ghcr.io/boredhero/lost-landscapes:latest
+    container_name: lost-landscapes-worker
     restart: unless-stopped
-    command: ["uv", "run", "celery", "-A", "hole_finder.workers.celery_app", "worker",
+    command: ["uv", "run", "celery", "-A", "lost_landscapes.workers.celery_app", "worker",
               "--loglevel=info", "--concurrency=4",
               "-Q", "default,ingest,process,detect"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://hole_finder:${POSTGRES_PASSWORD:-changeme}@db:5432/hole_finder
+      DATABASE_URL: postgresql+asyncpg://lost_landscapes:${POSTGRES_PASSWORD:-changeme}@db:5432/lost_landscapes
       REDIS_URL: redis://redis:6379/0
-      DATA_DIR: /data/hole-finder
+      DATA_DIR: /data/lost-landscapes
       PROJ_NETWORK: "OFF"
     volumes:
       - ./configs:/app/configs:ro
-      - hole_finder_logs:/app/logs
-      - /data/hole-finder:/data/hole-finder
+      - lost_landscapes_logs:/app/logs
+      - /data/lost-landscapes:/data/lost-landscapes
     depends_on:
       db:
         condition: service_healthy
@@ -91,21 +91,21 @@ services:
         condition: service_started
 
   celery-gpu:
-    image: ghcr.io/boredhero/hole-finder:latest
-    container_name: hole-finder-gpu-worker
+    image: ghcr.io/boredhero/lost-landscapes:latest
+    container_name: lost-landscapes-gpu-worker
     restart: unless-stopped
-    command: ["uv", "run", "celery", "-A", "hole_finder.workers.celery_app", "worker",
+    command: ["uv", "run", "celery", "-A", "lost_landscapes.workers.celery_app", "worker",
               "--loglevel=info", "--concurrency=1", "-Q", "gpu"]
     environment:
-      DATABASE_URL: postgresql+asyncpg://hole_finder:${POSTGRES_PASSWORD:-changeme}@db:5432/hole_finder
+      DATABASE_URL: postgresql+asyncpg://lost_landscapes:${POSTGRES_PASSWORD:-changeme}@db:5432/lost_landscapes
       REDIS_URL: redis://redis:6379/0
-      DATA_DIR: /data/hole-finder
+      DATA_DIR: /data/lost-landscapes
       HSA_OVERRIDE_GFX_VERSION: "10.3.0"
       PROJ_NETWORK: "OFF"
     volumes:
       - ./configs:/app/configs:ro
-      - hole_finder_logs:/app/logs
-      - /data/hole-finder:/data/hole-finder
+      - lost_landscapes_logs:/app/logs
+      - /data/lost-landscapes:/data/lost-landscapes
     devices:
       - /dev/kfd:/dev/kfd
       - /dev/dri:/dev/dri
@@ -120,12 +120,12 @@ services:
 
   autoheal:
     image: willfarrell/autoheal
-    container_name: hole-finder-autoheal
+    container_name: lost-landscapes-autoheal
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
-  hole_finder_pgdata:
-  hole_finder_redis:
-  hole_finder_logs:
+  lost_landscapes_pgdata:
+  lost_landscapes_redis:
+  lost_landscapes_logs:

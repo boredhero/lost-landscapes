@@ -10,7 +10,7 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_bounds
 
-from hole_finder.detection.base import PassInput
+from lost_landscapes.detection.base import PassInput
 
 
 def write_geotiff(path: Path, dem: np.ndarray, resolution: float = 1.0) -> Path:
@@ -68,7 +68,7 @@ def make_pass_input_from_geotiff(
     with rasterio.open(dem_path) as src:
         dem = src.read(1).astype(np.float32)
         transform = src.transform
-        from hole_finder.utils.crs import resolve_epsg
+        from lost_landscapes.utils.crs import resolve_epsg
         crs = resolve_epsg(src.crs)
 
     derivatives = {}

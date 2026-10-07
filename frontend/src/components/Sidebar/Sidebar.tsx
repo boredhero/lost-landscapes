@@ -44,7 +44,7 @@ export default function Sidebar() {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 flex-shrink-0">
           <div className="flex items-baseline gap-3">
-            <h2 className="text-lg font-bold text-white tracking-wide">HOLE FINDER</h2>
+            <h2 className="text-lg font-bold text-white tracking-wide">LOST LANDSCAPES</h2>
             <VersionTag />
           </div>
           <button onClick={() => setSidebarOpen(false)} className="text-slate-400 hover:text-white md:hidden">

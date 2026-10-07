@@ -76,6 +76,7 @@ export function useJobProgress(jobId: string | null): JobProgress {
 
   useEffect(() => {
     if (!jobId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the external job subscription.
       setState({ progress: 0, stage: null, source: null, status: null, totalDetections: null, downloadMb: null, tilesDone: null, tilesTotal: null, detectionsSoFar: null, error: null });
       return;
     }

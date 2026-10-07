@@ -7,20 +7,19 @@ overlaps. Falls back to centroid-in-polygon when outline is None / invalid.
 Buffers are now meter-projected (UTM) instead of raw degrees in WGS84.
 """
 
-import pytest
-from shapely.geometry import LineString, Point, Polygon, box
 from unittest.mock import patch
 
-from hole_finder.detection.postprocess.infrastructure_filter import (
+import pytest
+from shapely.geometry import LineString, Point, Polygon, box
+
+from lost_landscapes.detection.postprocess.infrastructure_filter import (
+    ROAD_BUFFER_M,
     _buffer_lines,
     _rejects,
     _utm_epsg_for,
-    OVERLAP_REJECT_FRACTION,
-    ROAD_BUFFER_M,
     filter_candidates_by_infrastructure,
 )
 from tests.conftest import make_candidate, make_candidate_with_outline
-
 
 # ===== Helper =====
 
@@ -28,14 +27,14 @@ def _stub_with_roads(roads_polys=None, water_polys=None, rail_polys=None, landus
     """Patch the OSM fetchers to return controlled fixtures.
 
     Patch the names imported INTO infrastructure_filter (not at the source) —
-    `from hole_finder.utils.osm_data import get_landuse_polygons` binds the
+    `from lost_landscapes.utils.osm_data import get_landuse_polygons` binds the
     reference at import time.
     """
     return [
-        patch("hole_finder.detection.postprocess.infrastructure_filter.get_road_geometries", return_value=roads_polys or []),
-        patch("hole_finder.detection.postprocess.infrastructure_filter.get_water_geometries", return_value=water_polys or []),
-        patch("hole_finder.detection.postprocess.infrastructure_filter.get_railway_geometries", return_value=rail_polys or []),
-        patch("hole_finder.detection.postprocess.infrastructure_filter.get_landuse_polygons", return_value=landuse_polys or []),
+        patch("lost_landscapes.detection.postprocess.infrastructure_filter.get_road_geometries", return_value=roads_polys or []),
+        patch("lost_landscapes.detection.postprocess.infrastructure_filter.get_water_geometries", return_value=water_polys or []),
+        patch("lost_landscapes.detection.postprocess.infrastructure_filter.get_railway_geometries", return_value=rail_polys or []),
+        patch("lost_landscapes.detection.postprocess.infrastructure_filter.get_landuse_polygons", return_value=landuse_polys or []),
     ]
 
 

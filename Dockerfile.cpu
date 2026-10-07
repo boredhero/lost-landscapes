@@ -1,0 +1,25 @@
+FROM node:22-bookworm-slim AS frontend
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM pdal/pdal:latest
+RUN apt-get update && apt-get install -y --no-install-recommends libspatialindex-dev osmium-tool && rm -rf /var/lib/apt/lists/*
+RUN python3 -m pip install --no-cache-dir uv==0.12.23
+WORKDIR /app
+COPY pyproject.toml uv.lock info.yml README.md ./
+RUN VERSION=$(sed -n 's/^version: //p' info.yml) && sed -i "s/__LOSTLANDSCAPES_VERSION__/$VERSION/" pyproject.toml
+RUN uv sync --frozen --no-dev --no-install-project
+COPY src/ src/
+RUN uv sync --frozen --no-dev --no-editable
+RUN uv run python -c "import whitebox; print(whitebox.WhiteboxTools().version())"
+COPY configs/ configs/
+COPY alembic/ alembic/
+COPY alembic.ini ./
+COPY scripts/ scripts/
+COPY --from=frontend /web/dist/ static/
+ENV DATA_DIR=/data/lost-landscapes PROJ_NETWORK=OFF OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 GDAL_NUM_THREADS=1
+EXPOSE 8000
+CMD ["uv", "run", "uvicorn", "lost_landscapes.main:app", "--host", "0.0.0.0", "--port", "8000"]

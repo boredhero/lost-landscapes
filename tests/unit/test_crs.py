@@ -14,8 +14,7 @@ import rasterio
 from pyproj import CRS as PyprojCRS
 from rasterio.transform import from_bounds
 
-from hole_finder.utils.crs import resolve_epsg
-
+from lost_landscapes.utils.crs import resolve_epsg
 
 # ---------- resolve_epsg: happy path ----------
 
@@ -40,8 +39,6 @@ class TestResolveEpsgCompound:
     @pytest.mark.parametrize("zone", [10, 15, 17, 19])
     def test_compound_nad83_utm_plus_navd88(self, zone):
         """Build a real compound CRS like PDAL outputs and verify horizontal extraction."""
-        horiz = PyprojCRS.from_epsg(26900 + zone)
-        vert = PyprojCRS.from_epsg(5703)  # NAVD88
         compound = PyprojCRS.from_proj4(f"+proj=utm +zone={zone} +datum=NAD83 +vunits=m +no_defs")
         result = resolve_epsg(compound)
         assert result is not None

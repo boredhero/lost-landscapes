@@ -3,8 +3,8 @@
 import pytest
 from shapely.geometry import Point
 
-from hole_finder.detection.base import Candidate, FeatureType
-from hole_finder.detection.fusion import ResultFuser
+from lost_landscapes.detection.base import Candidate, FeatureType
+from lost_landscapes.detection.fusion import ResultFuser
 
 
 class TestResultFuser:

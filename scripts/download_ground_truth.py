@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download all ground truth datasets for validation.
 
-Usage: uv run python scripts/download_ground_truth.py [--data-dir /data/hole-finder]
+Usage: uv run python scripts/download_ground_truth.py [--data-dir /data/lost-landscapes]
 
 Downloads:
 - PASDA karst features shapefile (111K+ points)
@@ -17,8 +17,8 @@ from pathlib import Path
 import click
 import httpx
 
-from hole_finder.config import settings
-from hole_finder.utils.log_manager import log
+from lost_landscapes.config import settings
+from lost_landscapes.utils.log_manager import log
 
 DOWNLOADS = {
     "pasda_karst": {

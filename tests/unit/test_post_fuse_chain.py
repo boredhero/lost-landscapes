@@ -11,7 +11,7 @@ it evaluates over the genuinely-survived set.
 
 import pytest
 
-from hole_finder.detection.postprocess.pipeline_glue import run_post_fuse_chain
+from lost_landscapes.detection.postprocess.pipeline_glue import run_post_fuse_chain
 from tests.conftest import make_candidate
 
 

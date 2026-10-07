@@ -1,52 +1,100 @@
-name: Test
+name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, master]
+  pull_request:
+    branches: [develop, master]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 concurrency:
-  group: test-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PROJ_NETWORK: "OFF"
+  ENABLE_ANALYSIS: "false"
 
 jobs:
-  test:
+  lint:
+    name: Lint (fail fast)
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
-
-      - name: Inject version from info.yml
-        run: |
-          VERSION=$(grep '^version:' info.yml | awk '{print $2}')
-          sed -i "s/__HOLEFINDER_VERSION__/$VERSION/" pyproject.toml
-          echo "Injected version $VERSION into pyproject.toml"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v7
         with:
-          version: "latest"
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Run unit tests
-        run: uv run pytest tests/unit/ -v --tb=short
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
+          version: "0.12.23"
+      - name: Deployment script syntax
+        run: bash -n scripts/deploy_host.sh
+      - name: Python lint
+        run: uvx ruff==0.15.7 check src tests scripts/import_study_area.py scripts/prepare_landscape.py
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Build frontend
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
         working-directory: frontend
-        run: pnpm install && pnpm build
+      - name: Frontend lint (zero warnings)
+        run: npm run lint -- --max-warnings=0
+        working-directory: frontend
+      - name: TypeScript
+        run: npx tsc -b --pretty false
+        working-directory: frontend
+
+  tests:
+    name: Python tests (native GDAL + WhiteboxTools)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - name: Install native geospatial tools
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libspatialindex-dev
+      - name: Install locked Python dependencies
+        run: |
+          uv python install 3.12
+          VERSION=$(sed -n 's/^version: //p' info.yml)
+          sed -i "s/__LOSTLANDSCAPES_VERSION__/$VERSION/" pyproject.toml
+          uv sync --frozen --extra dev --python 3.12
+      - name: Prepare WhiteboxTools binary
+        run: uv run --no-sync python -c "import whitebox; print(whitebox.WhiteboxTools().version())"
+      - name: Run unit tests (stop on first failure)
+        run: uv run --no-sync pytest tests/unit/ -x -q --tb=short --junitxml=test-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  frontend:
+    name: Production frontend
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: frontend/dist

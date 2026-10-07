@@ -5,10 +5,9 @@ Thresholds are intentionally looser than post-fusion (tasks.py) filters
 because multi-pass fusion bonus (1.2x) can rescue borderline candidates.
 """
 
-import pytest
 from shapely.geometry import Point
 
-from hole_finder.detection.base import Candidate, FeatureType
+from lost_landscapes.detection.base import Candidate, FeatureType
 
 
 def _make_candidate(score: float = 0.5, area_m2: float = 100.0, depth_m: float = 2.0, feature_type: FeatureType = FeatureType.DEPRESSION) -> tuple[str, Candidate]:

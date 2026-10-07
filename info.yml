@@ -1,8 +1,8 @@
-name: Hole Finder
+name: Lost Landscapes
 version: 0.9.2
-description: LiDAR-based terrain anomaly detection platform
+description: CPU-first LiDAR terrain exploration
 license: GPL-3.0-or-later
-repository: https://github.com/boredhero/anomalies-browser
+repository: https://github.com/boredhero/lost-landscapes
 author: boredhero
 detection_passes: 11
 regions: 5

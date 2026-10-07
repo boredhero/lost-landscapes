@@ -1,109 +1,42 @@
-name: Build and Deploy
-
+name: Deploy production
 on:
   push:
-    branches: [main]
-
+    branches: [master]
+permissions:
+  contents: read
 concurrency:
-  group: deploy
+  group: production-deployment
   cancel-in-progress: false
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
-  build-and-deploy:
+  checks:
+    if: github.ref == 'refs/heads/master'
+    uses: ./.github/workflows/test.yml
+  deploy:
+    needs: checks
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://anomalies.martinospizza.dev
     steps:
       - uses: actions/checkout@v6
-
-      - name: Inject version from info.yml
-        run: |
-          VERSION=$(grep '^version:' info.yml | awk '{print $2}')
-          sed -i "s/__HOLEFINDER_VERSION__/$VERSION/" pyproject.toml
-          echo "Injected version $VERSION into pyproject.toml"
-
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - name: Build frontend
-        working-directory: frontend
-        run: npm install -g pnpm && pnpm install && pnpm build
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          no-cache: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-
-      - name: Stage deploy files on jumpbox
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "docker-compose.prod.yml,configs/,nginx/"
-          target: /tmp/anomalies-deploy/
-
-      - name: Deploy to compute node via jumpbox
-        uses: appleboy/ssh-action@v1
+      - name: Configure dedicated deployment identity
         env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          DEPLOY_KEY: ${{ secrets.LANDSCAPES_DEPLOY_KEY }}
+          HOST_KEYS: ${{ secrets.LANDSCAPES_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/landscapes"
+          chmod 600 "$HOME/.ssh/landscapes"
+          printf '%s\n' "$HOST_KEYS" > "$HOME/.ssh/known_hosts"
+      - name: Deploy tested commit to the CPU host
+        env:
           DEPLOY_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 5m
-          envs: GHCR_TOKEN,DEPLOY_SHA
-          script: |
-            set -e
-            IMAGE="ghcr.io/boredhero/hole-finder"
-
-            ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no noah@192.168.1.111 'mkdir -p ~/anomalies-browser/configs/passes ~/anomalies-browser/configs/regions'
-
-            scp -o StrictHostKeyChecking=no /tmp/anomalies-deploy/docker-compose.prod.yml noah@192.168.1.111:~/anomalies-browser/docker-compose.yml
-            scp -r -o StrictHostKeyChecking=no /tmp/anomalies-deploy/configs/* noah@192.168.1.111:~/anomalies-browser/configs/
-
-            # Login, pull by SHA tag (guarantees we get THIS build, not a stale :latest),
-            # then retag as :latest so docker-compose.yml can reference it
-            OLD_ID=$(ssh -o StrictHostKeyChecking=no noah@192.168.1.111 "docker images ${IMAGE}:latest -q" 2>/dev/null || echo "none")
-            ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no noah@192.168.1.111 "echo '${GHCR_TOKEN}' | docker login ghcr.io -u boredhero --password-stdin"
-            ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no noah@192.168.1.111 "docker pull ${IMAGE}:${DEPLOY_SHA}"
-            ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no noah@192.168.1.111 "docker tag ${IMAGE}:${DEPLOY_SHA} ${IMAGE}:latest"
-            NEW_ID=$(ssh -o StrictHostKeyChecking=no noah@192.168.1.111 "docker images ${IMAGE}:latest -q")
-            echo "Image: old=${OLD_ID} new=${NEW_ID} sha=${DEPLOY_SHA}"
-            if [ "${OLD_ID}" = "${NEW_ID}" ]; then echo "WARNING: Image unchanged after pull"; fi
-
-            ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=no noah@192.168.1.111 "cd ~/anomalies-browser && docker compose up -d --force-recreate --remove-orphans && docker compose ps"
-
-            # nginx config managed by certbot — don't overwrite
-            # Only reload if config exists and is valid
-            sudo nginx -t && sudo systemctl reload nginx || true
-
-            for i in 1 2 3 4 5 6; do
-              curl -sf http://192.168.1.111:9747/api/health && echo " [deploy OK]" && break
-              sleep 10
-            done
-
-            rm -rf /tmp/anomalies-deploy
+        run: |
+          set -euo pipefail
+          git archive --format=tar.gz "$DEPLOY_SHA" | ssh -i "$HOME/.ssh/landscapes" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            noah@boredhero.dyndns.org "$DEPLOY_SHA"
+      - name: Verify public endpoint
+        run: curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 https://anomalies.martinospizza.dev/api/health

@@ -13,11 +13,10 @@ that mean-only filters would let through. Tests cover:
 
 import numpy as np
 import pytest
-import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import Point as ShPoint
 
-from hole_finder.detection.postprocess.rim_slope_filter import (
+from lost_landscapes.detection.postprocess.rim_slope_filter import (
     filter_candidates_by_rim_slope,
     rim_slope_ok,
 )

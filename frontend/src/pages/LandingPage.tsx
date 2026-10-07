@@ -39,18 +39,18 @@ export default function LandingPage() {
   const jobProgress = useJobProgress(phase === 'processing' ? activeJobId : null);
   // Shared flow after getting a location (from geo or zip)
   const handleLocationAcquired = useCallback(async (lat: number, lon: number) => {
-    console.log('[HoleFinder] Location acquired:', lat, lon);
+    console.log('[lostlandscapes] Location acquired:', lat, lon);
     scanCenter.current = { lat, lon };
     setUserLocation({ lat, lon });
     setTerrainReady(false);
     setTargetViewState({ longitude: lon, latitude: lat, zoom: 14, pitch: 45, bearing: -15 });
     try {
       const { job_id } = await startConsumerScan(lat, lon, 10);
-      console.log('[HoleFinder] Scan started, job:', job_id);
+      console.log('[lostlandscapes] Scan started, job:', job_id);
       setActiveJobId(job_id);
       setPhase('processing');
     } catch (err) {
-      console.error('[HoleFinder] Scan failed:', err);
+      console.error('[lostlandscapes] Scan failed:', err);
       setSearchStale(true);
       setPhase('explore');
     }
@@ -104,13 +104,14 @@ export default function LandingPage() {
     const status = jobProgress.status;
     if (status !== 'COMPLETED' && status !== 'FAILED') return;
     completionHandled.current = true;
-    console.log('[HoleFinder] Job finished:', status);
+    console.log('[lostlandscapes] Job finished:', status);
     bumpTileVersion();
     if (status === 'FAILED') return;
     const center = scanCenter.current;
     if (!center) {
-      console.error('[HoleFinder] No scan center — going to explore');
+      console.error('[lostlandscapes] No scan center — going to explore');
       setSearchStale(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Recover from an external job without a scan center.
       setPhase('explore');
       return;
     }
@@ -119,8 +120,8 @@ export default function LandingPage() {
     const west = center.lon - rLon, south = center.lat - rLat;
     const east = center.lon + rLon, north = center.lat + rLat;
     const warmPromise = warmTerrainCache(west, south, east, north)
-      .then((res) => { console.log('[HoleFinder] Terrain cache warmed:', res); setTerrainReady(true); })
-      .catch((err) => { console.warn('[HoleFinder] Terrain warm failed (non-fatal):', err); setTerrainReady(true); });
+      .then((res) => { console.log('[lostlandscapes] Terrain cache warmed:', res); setTerrainReady(true); })
+      .catch((err) => { console.warn('[lostlandscapes] Terrain warm failed (non-fatal):', err); setTerrainReady(true); });
     const detectPromise = getDetections({ west, south, east, north, min_confidence: 0.5, limit: 50 });
     Promise.all([warmPromise, detectPromise]).then(([, data]) => {
       const dets: Detection[] = (data.features || []).map((f: any) => ({
@@ -135,7 +136,7 @@ export default function LandingPage() {
         if (aIsDepression !== bIsDepression) return aIsDepression - bIsDepression;
         return b.confidence - a.confidence;
       });
-      console.log('[HoleFinder] Fetched', dets.length, 'detections for tour');
+      console.log('[lostlandscapes] Fetched', dets.length, 'detections for tour');
       setTourDetections(dets);
       setTourIndex(0);
       setActiveJobId(null);
@@ -146,11 +147,11 @@ export default function LandingPage() {
         setPhase('explore');
       }
     }).catch((err) => {
-      console.error('[HoleFinder] Failed to fetch detections:', err);
+      console.error('[lostlandscapes] Failed to fetch detections:', err);
       setSearchStale(true);
       setPhase('explore');
     });
-  }, [phase, jobProgress.status, setTourDetections, setTourIndex, setActiveJobId, setSearchStale, setTargetViewState]);
+  }, [phase, jobProgress.status, setTourDetections, setTourIndex, setActiveJobId, setSearchStale, setTargetViewState, bumpTileVersion, setTerrainReady]);
   // Tour navigation
   const handleTourNext = useCallback(() => {
     if (tourIndex < tourDetections.length - 1) {
@@ -255,7 +256,7 @@ export default function LandingPage() {
         Advanced
       </Link>
       <div className="text-center px-8 max-w-xl">
-        <h1 className="text-6xl md:text-7xl font-black text-white mb-3 tracking-tight">Hole Finder</h1>
+        <h1 className="text-6xl md:text-7xl font-black text-white mb-3 tracking-tight">Lost Landscapes</h1>
         <p className="text-slate-400 text-lg md:text-xl mb-10 leading-relaxed">
           Discover caves, mines, sinkholes & more hidden in LiDAR terrain data
         </p>

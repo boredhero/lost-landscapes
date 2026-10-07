@@ -18,7 +18,7 @@ export default function DrawControl({ active, onDrawCreate, onDrawDelete }: Draw
   const { current: mapRef } = useMap();
   const drawRef = useRef<TerraDraw | null>(null);
   const onDrawCreateRef = useRef(onDrawCreate);
-  onDrawCreateRef.current = onDrawCreate;
+  useEffect(() => { onDrawCreateRef.current = onDrawCreate; }, [onDrawCreate]);
 
   const startDraw = useCallback(() => {
     const map = mapRef?.getMap();

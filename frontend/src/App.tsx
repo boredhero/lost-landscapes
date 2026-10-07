@@ -1,7 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import PlaygroundPage from './pages/PlaygroundPage';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Routes, Route } from "react-router-dom";
+import LandscapePage from "./pages/LandscapePage";
+import { lazy, Suspense } from "react";
+const PlaygroundPage = lazy(() => import("./pages/PlaygroundPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,8 +17,15 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/playground" element={<PlaygroundPage />} />
+        <Route path="/" element={<LandscapePage />} />
+        <Route
+          path="/playground"
+          element={
+            <Suspense fallback={<p>Loading analysis tools…</p>}>
+              <PlaygroundPage />
+            </Suspense>
+          }
+        />
       </Routes>
     </QueryClientProvider>
   );

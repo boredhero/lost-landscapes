@@ -10,7 +10,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
-from hole_finder.main import create_app
+from lost_landscapes.main import create_app
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ class TestRasterTilesEndpoint:
 class TestVectorTiles:
     def test_tile_to_bbox(self):
         """Test ZXY to bbox conversion."""
-        from hole_finder.api.routes.tiles import _tile_to_bbox
+        from lost_landscapes.api.routes.tiles import _tile_to_bbox
 
         # Tile 0/0/0 should cover the whole world
         bbox = _tile_to_bbox(0, 0, 0)
@@ -85,7 +85,7 @@ class TestOpenAPI:
         r = client.get("/api/openapi.json")
         assert r.status_code == 200
         schema = r.json()
-        assert schema["info"]["title"] == "Hole Finder"
+        assert schema["info"]["title"] == "Lost Landscapes"
         paths = list(schema["paths"].keys())
         assert "/api/health" in paths
         assert "/api/detections" in paths

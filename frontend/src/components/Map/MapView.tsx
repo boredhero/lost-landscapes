@@ -153,7 +153,7 @@ function TerrainController() {
   const terrainExaggeration = useStore((s) => s.terrainExaggeration);
   const basemap = useStore((s) => s.basemap);
   const exaggerationRef = useRef(terrainExaggeration);
-  exaggerationRef.current = terrainExaggeration;
+  useEffect(() => { exaggerationRef.current = terrainExaggeration; }, [terrainExaggeration]);
   useEffect(() => {
     const map = mapRef?.getMap();
     if (!map) return;
@@ -204,7 +204,7 @@ function FlyToHandler() {
 
   useEffect(() => {
     if (targetViewState && mapRef) {
-      console.log('[HoleFinder] FlyTo:', targetViewState.latitude.toFixed(4), targetViewState.longitude.toFixed(4));
+      console.log('[lostlandscapes] FlyTo:', targetViewState.latitude.toFixed(4), targetViewState.longitude.toFixed(4));
       mapRef.flyTo({
         center: [targetViewState.longitude, targetViewState.latitude],
         zoom: targetViewState.zoom,
@@ -432,7 +432,7 @@ function MVTLayerManager() {
       map.once('style.load', setup);
     }
     // Also listen for our custom ready event (fired from Map onLoad)
-    map.on('holefinder:ready', () => {
+    map.on('lostlandscapes:ready', () => {
       if (!map.getSource('detections-mvt')) setup();
     });
 
@@ -558,15 +558,15 @@ function TileCoverageLayer() {
       return false;
     }
   }, []);
-  // Register for style.load + holefinder:ready so layers survive basemap switches
+  // Register for style.load + lostlandscapes:ready so layers survive basemap switches
   useEffect(() => {
     const map = mapRef?.getMap();
     if (!map) return;
     const handler = () => ensureLayers(map);
     if (map.isStyleLoaded()) handler();
     map.on('style.load', handler);
-    map.on('holefinder:ready', handler);
-    return () => { map.off('style.load', handler); map.off('holefinder:ready', handler); };
+    map.on('lostlandscapes:ready', handler);
+    return () => { map.off('style.load', handler); map.off('lostlandscapes:ready', handler); };
   }, [mapRef, ensureLayers]);
   // Toggle visibility
   useEffect(() => {
@@ -701,7 +701,7 @@ export default function MapView() {
           console.warn('[MapView] Map error:', e?.error?.message || e);
         });
         // Dispatch custom event so MVTLayerManager knows map is ready
-        map.fire('holefinder:ready');
+        map.fire('lostlandscapes:ready');
       }}
     >
       {heatmapLayers.length > 0 && <DeckGLOverlay layers={heatmapLayers} />}
