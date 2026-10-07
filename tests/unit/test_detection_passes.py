@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from hole_finder.detection.base import PassInput
+from lost_landscapes.detection.base import PassInput
 from tests.conftest import PROJECT_ROOT
 from tests.fixtures.synthetic_dem import (
     make_flat_geotiff,
@@ -24,7 +24,7 @@ from tests.fixtures.synthetic_dem import (
 GDAL_AVAILABLE = shutil.which("gdaldem") is not None
 WBT_AVAILABLE = True
 try:
-    import whitebox
+    import whitebox  # noqa: F401 — availability check
 except Exception:
     WBT_AVAILABLE = False
 
@@ -36,7 +36,7 @@ pytestmark = pytest.mark.skipif(
 
 def _process_and_load(dem_path: Path, tmpdir: Path):
     """Run native pipeline and return PassInput."""
-    from hole_finder.processing.pipeline import ProcessingPipeline
+    from lost_landscapes.processing.pipeline import ProcessingPipeline
     result = ProcessingPipeline(output_dir=tmpdir / "out").process_dem_file(dem_path, force=True)
     return make_pass_input_from_geotiff(dem_path, result.derivative_paths)
 
@@ -45,28 +45,28 @@ def _process_and_load(dem_path: Path, tmpdir: Path):
 
 class TestFillDifferencePass:
     def test_detects_pit(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
             assert len(FillDifferencePass().run(inp)) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
             assert len(FillDifferencePass().run(inp)) == 0
 
     def test_no_false_pos_slope(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_slope_geotiff(d), d)
             assert len(FillDifferencePass().run(inp)) == 0
 
     def test_rejects_shallow(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=0.2), d)
@@ -74,7 +74,7 @@ class TestFillDifferencePass:
             assert len(FillDifferencePass().run(inp)) == 0
 
     def test_multiple_depressions(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             yg = np.arange(400, dtype=np.float32) * 0.01
@@ -89,7 +89,7 @@ class TestFillDifferencePass:
             assert len(FillDifferencePass().run(inp)) >= 2
 
     def test_respects_max_area(self):
-        from hole_finder.detection.passes.fill_difference import FillDifferencePass
+        from lost_landscapes.detection.passes.fill_difference import FillDifferencePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=3.0, radius=50.0), d)
@@ -102,7 +102,7 @@ class TestFillDifferencePass:
 
 class TestLocalReliefModelPass:
     def test_detects_pit(self):
-        from hole_finder.detection.passes.local_relief_model import LocalReliefModelPass
+        from lost_landscapes.detection.passes.local_relief_model import LocalReliefModelPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -110,7 +110,7 @@ class TestLocalReliefModelPass:
             assert len(candidates) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.local_relief_model import LocalReliefModelPass
+        from lost_landscapes.detection.passes.local_relief_model import LocalReliefModelPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
@@ -118,8 +118,8 @@ class TestLocalReliefModelPass:
             assert len(LocalReliefModelPass().run(inp)) == 0
 
     def test_feature_type_is_cave(self):
-        from hole_finder.detection.passes.local_relief_model import LocalReliefModelPass
-        from hole_finder.detection.base import FeatureType
+        from lost_landscapes.detection.base import FeatureType
+        from lost_landscapes.detection.passes.local_relief_model import LocalReliefModelPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -132,7 +132,7 @@ class TestLocalReliefModelPass:
 
 class TestCurvaturePass:
     def test_detects_depression(self):
-        from hole_finder.detection.passes.curvature import CurvaturePass
+        from lost_landscapes.detection.passes.curvature import CurvaturePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -140,7 +140,7 @@ class TestCurvaturePass:
             assert len(CurvaturePass().run(inp)) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.curvature import CurvaturePass
+        from lost_landscapes.detection.passes.curvature import CurvaturePass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
@@ -151,7 +151,7 @@ class TestCurvaturePass:
 
 class TestSkyViewFactorPass:
     def test_detects_pit(self):
-        from hole_finder.detection.passes.sky_view_factor import SkyViewFactorPass
+        from lost_landscapes.detection.passes.sky_view_factor import SkyViewFactorPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=8.0, radius=15.0, size=100), d)
@@ -164,7 +164,7 @@ class TestSkyViewFactorPass:
             assert len(SkyViewFactorPass().run(inp)) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.sky_view_factor import SkyViewFactorPass
+        from lost_landscapes.detection.passes.sky_view_factor import SkyViewFactorPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d, size=100), d)
@@ -175,7 +175,7 @@ class TestSkyViewFactorPass:
 
 class TestTPIPass:
     def test_detects_depression(self):
-        from hole_finder.detection.passes.tpi import TPIPass
+        from lost_landscapes.detection.passes.tpi import TPIPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -183,7 +183,7 @@ class TestTPIPass:
             assert len(TPIPass().run(inp)) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.tpi import TPIPass
+        from lost_landscapes.detection.passes.tpi import TPIPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
@@ -194,7 +194,7 @@ class TestTPIPass:
 
 class TestMorphometricFilterPass:
     def test_computes_morphometrics(self):
-        from hole_finder.detection.passes.morphometric_filter import MorphometricFilterPass
+        from lost_landscapes.detection.passes.morphometric_filter import MorphometricFilterPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=20.0), d)
@@ -211,15 +211,15 @@ class TestMorphometricFilterPass:
             assert "wall_slope_deg" in m
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.passes.morphometric_filter import MorphometricFilterPass
+        from lost_landscapes.detection.passes.morphometric_filter import MorphometricFilterPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
             assert len(MorphometricFilterPass().run(inp)) == 0
 
     def test_classifies_feature_type(self):
-        from hole_finder.detection.passes.morphometric_filter import MorphometricFilterPass
-        from hole_finder.detection.base import FeatureType
+        from lost_landscapes.detection.base import FeatureType
+        from lost_landscapes.detection.passes.morphometric_filter import MorphometricFilterPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=20.0), d)
@@ -233,14 +233,14 @@ class TestMorphometricFilterPass:
 
 class TestPointDensityPass:
     def test_empty_without_point_cloud(self):
-        from hole_finder.detection.passes.point_density import PointDensityPass
+        from lost_landscapes.detection.passes.point_density import PointDensityPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
             assert len(PointDensityPass().run(inp)) == 0
 
     def test_detects_void(self):
-        from hole_finder.detection.passes.point_density import PointDensityPass
+        from lost_landscapes.detection.passes.point_density import PointDensityPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d, size=100), d)
@@ -257,14 +257,14 @@ class TestPointDensityPass:
 
 class TestMultiReturnPass:
     def test_empty_without_point_cloud(self):
-        from hole_finder.detection.passes.multi_return import MultiReturnPass
+        from lost_landscapes.detection.passes.multi_return import MultiReturnPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
             assert len(MultiReturnPass().run(inp)) == 0
 
     def test_detects_anomalous_returns(self):
-        from hole_finder.detection.passes.multi_return import MultiReturnPass
+        from lost_landscapes.detection.passes.multi_return import MultiReturnPass
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d, size=100), d)
@@ -283,17 +283,17 @@ class TestMultiReturnPass:
 
 class TestPassRunnerToml:
     def test_load_cave_config(self):
-        from hole_finder.detection.runner import PassRunner
+        from lost_landscapes.detection.runner import PassRunner
         runner = PassRunner.from_toml(PROJECT_ROOT / "configs/passes/cave_hunting.toml")
         assert len(runner.passes) >= 4
 
     def test_load_sinkhole_config(self):
-        from hole_finder.detection.runner import PassRunner
+        from lost_landscapes.detection.runner import PassRunner
         runner = PassRunner.from_toml(PROJECT_ROOT / "configs/passes/sinkhole_survey.toml")
         assert len(runner.passes) >= 4
 
     def test_cave_config_detects_pit(self):
-        from hole_finder.detection.runner import PassRunner
+        from lost_landscapes.detection.runner import PassRunner
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -301,7 +301,7 @@ class TestPassRunnerToml:
             assert len(runner.run_on_array(inp.dem, inp.transform, inp.crs, inp.derivatives)) >= 1
 
     def test_sinkhole_config_detects_pit(self):
-        from hole_finder.detection.runner import PassRunner
+        from lost_landscapes.detection.runner import PassRunner
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_sinkhole_geotiff(d, depth=5.0, radius=15.0), d)
@@ -309,7 +309,7 @@ class TestPassRunnerToml:
             assert len(runner.run_on_array(inp.dem, inp.transform, inp.crs, inp.derivatives)) >= 1
 
     def test_no_false_pos_flat(self):
-        from hole_finder.detection.runner import PassRunner
+        from lost_landscapes.detection.runner import PassRunner
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             inp = _process_and_load(make_flat_geotiff(d), d)
@@ -323,8 +323,9 @@ class TestSVFNormalization:
 
     def test_svf_pass_normalizes_raw_integer_output(self):
         """SVF values in 0-32000 range must be normalized to 0-1 before thresholding."""
-        from hole_finder.detection.passes.sky_view_factor import SkyViewFactorPass
         from rasterio.transform import from_bounds
+
+        from lost_landscapes.detection.passes.sky_view_factor import SkyViewFactorPass
         # Create a 50x50 SVF raster with raw integer values (simulating WBT output)
         # Most pixels at ~25000 (open sky), a 10x10 bowl at ~15000 (enclosed)
         svf = np.full((50, 50), 25000.0, dtype=np.float32)
@@ -341,8 +342,9 @@ class TestSVFNormalization:
 
     def test_svf_pass_already_normalized_input(self):
         """SVF values already in 0-1 range should work without double-normalization."""
-        from hole_finder.detection.passes.sky_view_factor import SkyViewFactorPass
         from rasterio.transform import from_bounds
+
+        from lost_landscapes.detection.passes.sky_view_factor import SkyViewFactorPass
         svf = np.full((50, 50), 0.95, dtype=np.float32)
         svf[20:30, 20:30] = 0.5  # enclosed region below 0.75 threshold
         dem = np.full((50, 50), 300.0, dtype=np.float32)
@@ -354,8 +356,9 @@ class TestSVFNormalization:
 
     def test_svf_high_values_not_detected(self):
         """Uniformly high SVF (open terrain) should produce zero detections."""
-        from hole_finder.detection.passes.sky_view_factor import SkyViewFactorPass
         from rasterio.transform import from_bounds
+
+        from lost_landscapes.detection.passes.sky_view_factor import SkyViewFactorPass
         svf = np.full((50, 50), 24000.0, dtype=np.float32)  # uniformly open sky
         dem = np.full((50, 50), 300.0, dtype=np.float32)
         transform = from_bounds(0, 0, 50, 50, 50, 50)

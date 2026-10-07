@@ -12,19 +12,19 @@ import numpy as np
 import pytest
 from rasterio.transform import from_bounds
 
-from hole_finder.detection.base import PassInput
-from hole_finder.detection.passes.random_forest import (
+from lost_landscapes.detection.base import PassInput
+from lost_landscapes.detection.passes.random_forest import (
     FEATURE_NAMES,
     RandomForestPass,
     extract_features,
 )
-from hole_finder.detection.passes.unet_segmentation import (
+from lost_landscapes.detection.passes.unet_segmentation import (
     UNetSegmentationPass,
     _prepare_input_tensor,
 )
-from hole_finder.detection.passes.yolo_detector import YOLODetectorPass
-from hole_finder.detection.registry import PassRegistry
-from hole_finder.ml.training import (
+from lost_landscapes.detection.passes.yolo_detector import YOLODetectorPass
+from lost_landscapes.detection.registry import PassRegistry
+from lost_landscapes.ml.training import (
     extract_rf_training_data,
     extract_unet_patches,
     train_random_forest,
@@ -52,8 +52,8 @@ def _make_test_mask(size=100):
 
 def _get_native_derivatives(dem_path: Path, tmpdir: Path) -> dict[str, np.ndarray]:
     """Run native pipeline and return derivative arrays."""
+    from lost_landscapes.processing.pipeline import ProcessingPipeline
     from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff
-    from hole_finder.processing.pipeline import ProcessingPipeline
     result = ProcessingPipeline(output_dir=tmpdir / "out").process_dem_file(dem_path, force=True)
     inp = make_pass_input_from_geotiff(dem_path, result.derivative_paths)
     return inp.derivatives
@@ -75,8 +75,8 @@ class TestMLPassesRegistered:
 @pytest.mark.skipif(not NATIVE_AVAILABLE, reason="Requires GDAL + WhiteboxTools")
 class TestFeatureExtraction:
     def test_extract_10_features(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -88,8 +88,8 @@ class TestFeatureExtraction:
             assert len(FEATURE_NAMES) == 10
 
     def test_features_are_finite(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -100,8 +100,8 @@ class TestFeatureExtraction:
             assert np.all(np.isfinite(features))
 
     def test_depth_feature_positive(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -123,8 +123,8 @@ class TestRandomForestPass:
 
     @pytest.mark.skipif(not NATIVE_AVAILABLE, reason="Requires GDAL + WhiteboxTools")
     def test_works_with_trained_model(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -145,8 +145,8 @@ class TestRandomForestPass:
 @pytest.mark.skipif(not NATIVE_AVAILABLE, reason="Requires GDAL + WhiteboxTools")
 class TestTrainingPipeline:
     def test_rf_training_data_extraction(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -159,8 +159,8 @@ class TestTrainingPipeline:
             assert np.sum(y == 0) >= 1
 
     def test_rf_training_produces_model(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d)
@@ -174,8 +174,8 @@ class TestTrainingPipeline:
             assert len(metrics["feature_importances"]) == 10
 
     def test_unet_patch_extraction(self):
-        from tests.fixtures.synthetic_dem import make_sinkhole_geotiff, make_pass_input_from_geotiff
-        from hole_finder.processing.pipeline import ProcessingPipeline
+        from lost_landscapes.processing.pipeline import ProcessingPipeline
+        from tests.fixtures.synthetic_dem import make_pass_input_from_geotiff, make_sinkhole_geotiff
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d, size=300)
@@ -202,7 +202,8 @@ class TestUNetArchitecture:
     def test_unet_model_builds(self):
         try:
             import torch
-            from hole_finder.detection.passes.unet_segmentation import _build_unet
+
+            from lost_landscapes.detection.passes.unet_segmentation import _build_unet
             UNet = _build_unet()
             model = UNet(in_channels=5, out_channels=1)
             x = torch.randn(1, 5, 256, 256)

@@ -26,6 +26,7 @@ export default function PlaygroundPage() {
     if (completionHandled.current) return;
     if (jobProgress.status === 'COMPLETED') {
       completionHandled.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reflect external job completion.
       setScanStatus('done');
       setActiveJobId(null);
       setSearchStale(true);
@@ -38,7 +39,7 @@ export default function PlaygroundPage() {
       setScanStatus('failed');
       setActiveJobId(null);
     }
-  }, [scanStatus, jobProgress.status, jobProgress.error, setActiveJobId, setSearchStale]);
+  }, [scanStatus, jobProgress.status, jobProgress.error, setActiveJobId, setSearchStale, bumpTileVersion]);
   const handleScan = useCallback(async () => {
     if (!bbox) return;
     const lat = (bbox[1] + bbox[3]) / 2;

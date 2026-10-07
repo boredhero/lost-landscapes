@@ -22,7 +22,7 @@ from tests.fixtures.synthetic_dem import (
 GDAL_AVAILABLE = shutil.which("gdaldem") is not None
 WBT_AVAILABLE = True
 try:
-    import whitebox
+    import whitebox  # noqa: F401 — availability check
 except Exception:
     WBT_AVAILABLE = False
 
@@ -33,7 +33,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _run_pipeline(dem_path: Path, tmpdir: Path) -> dict[str, Path]:
-    from hole_finder.processing.pipeline import ProcessingPipeline
+    from lost_landscapes.processing.pipeline import ProcessingPipeline
     result = ProcessingPipeline(output_dir=tmpdir / "out").process_dem_file(dem_path, force=True)
     return result.derivative_paths
 
@@ -230,23 +230,24 @@ class TestFillDepressionsFallback:
 
     def test_skimage_fallback_produces_valid_output(self):
         """When all WBT methods fail, skimage reconstruction should produce a filled DEM."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             dem_path = make_sinkhole_geotiff(d, depth=5.0, radius=12.0, size=100)
             out_path = d / "filled.tif"
-            # Mock WBT to always fail (return nonzero and no output file)
+            # Simulate native methods failing to create their output.
             mock_wbt = MagicMock()
-            mock_wbt.fill_depressions.return_value = 1
+            mock_wbt.fill_depressions.return_value = 0  # Native tool can report success without output.
             mock_wbt.breach_depressions_least_cost.return_value = 1
             mock_wbt.fill_depressions_planchon_and_darboux.return_value = 1
-            with patch("hole_finder.processing.derivatives._get_wbt", return_value=mock_wbt):
-                from hole_finder.processing.derivatives import fill_depressions
+            with patch("lost_landscapes.processing.derivatives._get_wbt", return_value=mock_wbt):
+                from lost_landscapes.processing.derivatives import fill_depressions
                 result_path, elapsed = fill_depressions(str(dem_path), str(out_path))
+            mock_wbt.breach_depressions_least_cost.assert_not_called()
+            mock_wbt.fill_depressions_planchon_and_darboux.assert_called_once()
             assert Path(result_path).exists(), "Fallback should produce output file"
             # Verify the filled DEM has higher or equal values everywhere (depressions filled up)
             import rasterio
-            import numpy as np
             with rasterio.open(dem_path) as src:
                 original = src.read(1)
             with rasterio.open(result_path) as src:

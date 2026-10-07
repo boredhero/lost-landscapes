@@ -15,7 +15,7 @@ export default function TopBar() {
   return (
     <div className="fixed top-0 inset-x-0 z-30 bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50">
       <div className="flex items-center px-5 py-3">
-        <span className="text-base font-bold text-white tracking-wide">HOLE FINDER</span>
+        <span className="text-base font-bold text-white tracking-wide">LOST LANDSCAPES</span>
         {info?.version && (
           <span className="text-xs text-cherry-400 ml-2 font-mono">v{info.version}</span>
         )}

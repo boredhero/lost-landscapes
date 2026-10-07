@@ -1,6 +1,6 @@
 # Research Cited
 
-Papers, datasets, and resources used to design and implement Hole Finder.
+Papers, datasets, and resources used to design and implement Lost Landscapes.
 
 ---
 

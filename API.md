@@ -1,7 +1,7 @@
-# Hole Finder API Documentation
+# Lost Landscapes API Documentation
 
-Base URL: `https://holefinder.martinospizza.dev/api`
-Interactive docs: `https://holefinder.martinospizza.dev/api/docs`
+Base URL: `https://lostlandscapes.martinospizza.dev/api`
+Interactive docs: `https://lostlandscapes.martinospizza.dev/api/docs`
 
 All responses are JSON unless otherwise noted. All geometry is WGS84 (EPSG:4326).
 
@@ -19,7 +19,7 @@ Returns service status.
 Returns version info from info.yml.
 ```json
 {
-  "name": "Hole Finder",
+  "name": "Lost Landscapes",
   "version": "0.1.0",
   "description": "LiDAR-based terrain anomaly detection platform",
   "license": "GPL-3.0-or-later",

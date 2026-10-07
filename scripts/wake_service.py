@@ -11,11 +11,11 @@ Usage:
 
 systemd unit:
     [Unit]
-    Description=Hole Finder Wake-on-LAN service
+    Description=Lost Landscapes Wake-on-LAN service
     After=network.target
 
     [Service]
-    ExecStart=/usr/bin/python3 /opt/hole-finder/wake_service.py
+    ExecStart=/usr/bin/python3 /opt/lost-landscapes/wake_service.py
     Restart=always
     User=noah
 

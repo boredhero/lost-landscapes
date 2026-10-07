@@ -114,7 +114,7 @@ const FUN_FACTS = [
   'The Sierra Nevada foothills contain thousands of historic gold and silver mines from the 1850s',
 
   // Processing & tech
-  'Hole Finder processes 11 derivative rasters in parallel from each DEM using native C++ and Rust tools',
+  'Lost Landscapes processes 11 derivative rasters in parallel from each DEM using native C++ and Rust tools',
   'A filled DEM is created by simulating water filling all depressions — the difference reveals sinkhole depth',
   'Hillshade rendering simulates sunlight hitting terrain to make features visible to the human eye',
   'PostGIS ST_AsMVT generates vector tiles on-the-fly for rendering 100,000+ detections without lag',

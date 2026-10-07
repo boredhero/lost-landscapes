@@ -8,7 +8,7 @@ import pytest
 import rasterio
 from shapely.geometry import Point, Polygon
 
-from hole_finder.detection.base import Candidate, FeatureType
+from lost_landscapes.detection.base import Candidate, FeatureType
 
 # Resolve project root from this file's location (tests/conftest.py → project root)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -134,8 +134,8 @@ def ensure_passes_registered():
     """Ensure all passes are registered before each test."""
     import importlib
 
-    import hole_finder.detection.passes as passes_mod
-    from hole_finder.detection.passes import (
+    import lost_landscapes.detection.passes as passes_mod
+    from lost_landscapes.detection.passes import (
         curvature,
         fill_difference,
         local_relief_model,

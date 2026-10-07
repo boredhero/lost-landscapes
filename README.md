@@ -1,275 +1,171 @@
-# Hole Finder
+# Lost Landscapes
 
-A modular LiDAR analysis platform that automatically detects cave entrances, mine portals, sinkholes, and other terrain anomalies using a hybrid classical + machine learning approach.
+Deployment: https://anomalies.martinospizza.dev on `boredhero.dyndns.org`.
 
-**Live at:** [holefinder.martinospizza.dev](https://holefinder.martinospizza.dev) | [anomalies.martinospizza.dev](https://anomalies.martinospizza.dev)
+A LiDAR terrain explorer built from Lost Landscapes. The first version focuses on a
+clear map interface and high-resolution bare-earth terrain. It does **not** yet
+detect or verify archaeological ruins.
 
-## What It Does
+## Explore
 
-Processes free, publicly available LiDAR elevation data (USGS 3DEP, PASDA, state GIS portals) to find underground features that are invisible to the naked eye but leave subtle signatures in terrain data:
+- Open directly onto an imported study area, without a splash screen or mandatory scan.
+- Switch between **LiDAR**, **Aerial**, and a synchronized **Compare** divider.
+- Use visible 2D/3D, zoom, north reset, tilt, and elevation exaggeration controls.
+- Inspect terrain candidates and save places on the current browser/device.
+- Search imported study areas, US ZIP codes, or `latitude, longitude`.
+- When analysis is enabled, submit a bounded area and keep using the map while it runs.
 
-- **Cave entrances** detected via Local Relief Models, point density voids, and multi-return analysis
-- **Mine portals** found through fill-difference analysis and collapse pit morphometry
-- **Sinkholes** identified with multi-scale TPI, sky-view factor, and curvature analysis
-- **Other anomalies** via a plugin system that makes adding new detection passes trivial
+The original specialist interface remains at `/playground`, loaded separately.
+The default preview works without PostGIS, Redis, or a detection worker.
 
-### Consumer Experience
+## Terrain and performance
 
-"Find a Hole Near Me" — enter your zip code or share your location, and the system automatically downloads and processes nearby LiDAR terrain data in under 5 minutes. An animated loading screen shows real-time download progress (MB downloaded) and processing stages. When done, you're taken on a Tinder-style guided tour of the most interesting finds, swiping through detection cards while the map flies to each one.
+The new `/api/landscape` renderer reads intersecting LiDAR DEMs into 512-pixel
+Web Mercator tiles, with elevation and shaded relief available through zoom 18.
+Multidirectional lighting uses padded neighboring samples. Missing elevations
+are filled from regional terrain and feathered at coverage boundaries, rather
+than converted into sea-level cliffs. RGB elevation is decoded before resampling.
 
-### Advanced Playground
+Terrain and relief are cached on disk under a source revision; data changes
+invalidate the tile URLs. Cached requests bypass the rendering queue. Slow
+regional-elevation downloads use a separate pool from the bounded CPU renderer.
+Imported raster overviews and pre-baking reduce work during exploration.
 
-Full-featured interface at `/playground` with "Search this area" — scans exactly what's visible in the viewport. Sidebar filtering by feature type and confidence with zoom-adaptive visibility (zoomed in = more detections shown). Job management, validation workflows, comments, 3D terrain, and heatmap overlays.
+**No server GPU is required.** The browser renders the 3D scene. Comparison uses
+two synchronized browser canvases, so it has a higher client GPU cost than one
+map. The backend default is two terrain render threads, one tile being analyzed,
+two derivative workers, and one Celery process in the CPU deployment.
 
-## Architecture
+### Data assumptions
 
-### Data Pipeline
-```
-                          ┌─────────────────────────────────────────────┐
-                          │            USGS 3DEP / PASDA / State GIS   │
-                          │              (free, no API keys)            │
-                          └────────────────────┬────────────────────────┘
-                                               │ COPC/LAZ tiles
-                                               ▼
-                     ┌─────────────────────────────────────────────────────┐
-                     │                   PDAL (C++)                        │
-                     │          SMRF ground classify → IDW DEM             │
-                     │              + filled DEM (WBT Rust)                │
-                     └────────────────────┬────────────────────────────────┘
-                                          │ GeoTIFF DEM
-                    ┌─────────────────────┼─────────────────────┐
-                    ▼                     ▼                     ▼
-           ┌──────────────┐    ┌──────────────────┐   ┌─────────────────┐
-           │   GDAL (C)   │    │ WhiteboxTools    │   │   Rasterio      │
-           │  hillshade   │    │  (Rust)          │   │   (Python)      │
-           │  slope       │    │  SVF             │   │  fill_diff =    │
-           │  TPI         │    │  LRM x3          │   │  filled - DEM   │
-           │  roughness   │    │  curvature x2    │   │                 │
-           └──────┬───────┘    └────────┬─────────┘   └───────┬─────────┘
-                  │                     │                     │
-                  └─────────────────────┼─────────────────────┘
-                         ALL IN PARALLEL (ProcessPoolExecutor)
-                                        │
-                                        ▼
-                              11 derivative GeoTIFFs
-                              (cached permanently on SSD)
-```
+Import projected, meter-based, single-band bare-earth DEMs with elevation in
+meters. This prototype assumes compatible vertical references; it does not
+perform vertical-datum harmonization. Source resolution and classification
+quality limit visible detail. The original point-cloud ingestion pipeline is
+retained for analysis, but the preview can use already-derived LiDAR DEMs.
 
-### Detection Engine
-```
-         11 derivative rasters (read-only)
-                     │
-    ┌────────────────┼────────────────────────────────┐
-    ▼                ▼                ▼                ▼
-┌────────┐   ┌────────────┐   ┌──────────┐   ┌────────────────┐
-│fill_diff│   │    LRM     │   │curvature │   │  SVF / TPI /   │
-│  pass   │   │   pass     │   │  pass    │   │ point_density  │
-│         │   │(cave gold  │   │          │   │ multi_return   │
-│         │   │ standard)  │   │          │   │ morpho_filter  │
-└────┬────┘   └─────┬──────┘   └────┬─────┘   └──────┬─────────┘
-     │              │               │                 │
-     └──────────────┼───────────────┼─────────────────┘
-           ALL IN PARALLEL (ThreadPoolExecutor)
-                    │
-                    ▼
-          ┌─────────────────┐
-          │  Result Fuser   │
-          │  DBSCAN (10m)   │
-          │  + weighted     │
-          │  confidence     │
-          │  scoring        │
-          └────────┬────────┘
-                   │
-                   ▼
-          PostGIS detections
-          (permanent, WGS84)
-```
+## Local development
 
-### Deployment
-```
-    Internet
-       │
-       ▼
-  holefinder.martinospizza.dev
-  anomalies.martinospizza.dev
-       │
-       ▼
-┌──────────────────────┐
-│  .69 (gateway)       │
-│  nginx reverse proxy │
-│  TLS (certbot)       │
-│  HSTS + sec headers  │
-└──────────┬───────────┘
-           │ LAN :9747
-           ▼
-┌──────────────────────────────────────────────────────────┐
-│  .111 (compute)                                          │
-│  Ryzen 7 5800X3D · 64GB · RX 6900 XT 17GB              │
-│                                                          │
-│  ┌─────────────┐ ┌───────────┐ ┌──────────────────────┐ │
-│  │ hole-finder  │ │ PostGIS   │ │ Redis                │ │
-│  │ -api         │ │ 16        │ │ 7                    │ │
-│  │ (FastAPI +   │ │ 127.0.0.1 │ │ 127.0.0.1            │ │
-│  │  frontend)   │ │ :5432     │ │ :6379                │ │
-│  └─────────────┘ └───────────┘ └──────────────────────┘ │
-│  ┌─────────────┐ ┌─────────────┐ ┌──────────────────┐   │
-│  │ celery      │ │ celery      │ │ autoheal         │   │
-│  │ -worker     │ │ -gpu-worker │ │                  │   │
-│  │ (4 conc)    │ │ (ROCm GPU) │ │                  │   │
-│  └─────────────┘ └─────────────┘ └──────────────────┘   │
-│                                                          │
-│  /data (1TB SSD) ─── raw tiles, DEMs, derivatives        │
-│  All containers: restart:unless-stopped                   │
-└──────────────────────────────────────────────────────────┘
-```
+Python dependencies use `uv`; geospatial processing also needs PDAL, GDAL and
+WhiteboxTools. The Docker image supplies native tools. For a local environment:
 
-### CI/CD
-```
-  develop branch                    main branch
-       │                                │
-  push triggers                    merge triggers
-       │                                │
-       ▼                                ▼
-  ┌──────────┐                   ┌─────────────────┐
-  │  Test    │                   │ Build & Deploy  │
-  │  pytest  │                   │                 │
-  │  + build │                   │ 1. pnpm build   │
-  │          │                   │ 2. Docker image │
-  │ cancel-  │                   │ 3. Push GHCR    │
-  │ in-prog  │                   │ 4. SSH .69→.111 │
-  └──────────┘                   │ 5. docker up    │
-                                 │ 6. health check │
-                                 └─────────────────┘
-```
-
-### Detection Passes
-
-| Pass | Method | Best For |
-|------|--------|----------|
-| Fill-Difference | Priority-flood sink subtraction | Sinkholes (93% recall) |
-| Local Relief Model | Multi-scale trend surface removal | Cave entrances (80% confirmed) |
-| Curvature | Zevenbergen & Thorne profile/plan | Concavities |
-| Sky-View Factor | Horizon angle sampling | Enclosed features |
-| TPI | Multi-scale topographic position | Depressions |
-| Point Density | Z-score void detection | Cave/mine openings |
-| Multi-Return | Anomalous return patterns | Sub-surface openings |
-| Morphometric Filter | Depth/area/circularity/k-param | False positive filtering |
-| Random Forest | 10-feature classifier (sklearn) | Sinkhole classification |
-| U-Net | 5-channel semantic segmentation | Pixel-level detection |
-| YOLOv8 | Hillshade object detection | Cave/mine bounding boxes |
-
-### Target Regions
-
-- Western Pennsylvania (Allegheny Plateau karst, bituminous coal belt)
-- Eastern Pennsylvania (Great Valley karst, anthracite coal region)
-- West Virginia (Greenbrier County karst, extensive coal mining)
-- Eastern Ohio (coal mine regions, Lockport Formation karst)
-- Upstate New York (Niagara Escarpment, Lockport dolomite)
-- Western North Carolina (Blue Ridge karst, Spruce Pine mica mining, Piedmont gold mines)
-- Western Maryland (Hagerstown Valley karst, western MD coal mining)
-- Western Massachusetts (Berkshire County marble belt, pyrite and mica mines)
-- South Louisiana (salt dome collapse sinkholes, Bayou Corne area)
-- North Louisiana (limestone karst)
-- Northern California (Modoc Plateau lava tubes, Lava Beds National Monument)
-- Sierra Nevada (gold country, marble caverns, historic mines)
-- Southern California Desert (desert mining districts)
-
-## Tech Stack
-
-**Backend:** Python 3.13, FastAPI, SQLAlchemy + GeoAlchemy2, asyncpg, PostGIS 16, Celery + Redis, PDAL 2.10, GDAL 3.12, WhiteboxTools
-
-**Frontend:** React + TypeScript, MapLibre GL JS (MVT vector tiles), deck.gl (heatmap), framer-motion (swipe cards), Zustand, TanStack Query, Tailwind CSS v4
-
-**ML:** scikit-learn (Random Forest), PyTorch + ROCm 7.2 (U-Net, YOLOv8) — infrastructure ready, models not yet trained
-
-**Resilience:** httpx-retries with 4 Overpass API mirror rotation, 7-day file cache, robust CRS handling for compound CRS (UTM+NAVD88), 3-tier fill_depressions fallback (WBT → WBT Planchon-Darboux → skimage)
-
-**Infrastructure:** Docker (pdal/pdal:latest base), GitHub Actions CI/CD, nginx reverse proxy, Ryzen 5800X3D compute node
-
-## API
-
-Interactive API docs available at `/api/docs` (Swagger UI) when running locally.
-
-### Core Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/detections` | Query detections in a bounding box (GeoJSON FeatureCollection) |
-| GET | `/api/detections/{id}` | Full detection detail with pass results and validation history |
-| GET | `/api/detections/count` | Fast count of detections near a point (for area availability check) |
-
-### Map Tiles
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/tiles/{z}/{x}/{y}.mvt` | Mapbox Vector Tiles for detection rendering (PostGIS ST_AsMVT) |
-| GET | `/api/tiles/ground-truth/{z}/{x}/{y}.mvt` | Ground truth site vector tiles |
-| GET | `/api/raster/{layer}/{z}/{x}/{y}.png` | Hillshade and terrain-RGB raster tiles |
-
-### Consumer Flow
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/geocode?zip=15208` | Zip code geocoding via US Census Bureau (server-side proxy) |
-| POST | `/api/explore/scan` | Start auto-processing job for viewport area (radius derived from viewport, 12 tile cap) |
-
-### Job Management
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/jobs` | List processing jobs |
-| POST | `/api/jobs` | Submit a new processing job (region, draw polygon, or pin) |
-| GET | `/api/jobs/{id}` | Get job status and progress |
-| POST | `/api/jobs/{id}/cancel` | Cancel a running job |
-| WS | `/ws/jobs` | WebSocket for real-time job progress (stage, %, completion) |
-
-### Validation & Comments
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/detections/{id}/validate` | Validate detection (confirm/reject/uncertain + notes) |
-| GET/POST | `/api/detections/{id}/comments` | Read/add comments on a detection |
-| POST | `/api/detections/{id}/save` | Bookmark a detection |
-
-### Data & Export
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/regions` | List available region polygons (13 regions across 9 states) |
-| GET | `/api/regions/{name}` | Get region GeoJSON boundary |
-| GET/POST | `/api/ground-truth` | Ground truth site CRUD |
-| GET | `/api/export/geojson` | Export detections as GeoJSON file |
-| GET | `/api/export/csv` | Export detections as CSV file |
-
-## Quick Start
-
-```bash
-# Clone
-git clone https://github.com/boredhero/anomalies-browser.git
-cd anomalies-browser
-
-# Backend
+```sh
+# The repository keeps a version placeholder, as in the upstream build.
+sed -i 's/__LOSTLANDSCAPES_VERSION__/0.9.2/' pyproject.toml
 uv sync --extra dev
-uv run pytest tests/unit/ -v     # 177 tests
-
-# Frontend
-cd frontend && pnpm install && pnpm dev
+# Restore the placeholder after installing; uv run --no-sync uses the environment.
+git restore pyproject.toml
+uv run --no-sync uvicorn lost_landscapes.main:app --host 127.0.0.1 --port 8000
 ```
 
-## Data Sources
+In a second terminal:
 
-All data sources are free and require no API keys:
+```sh
+cd frontend
+npm ci
+npm run dev
+```
 
-- **USGS 3DEP** via Planetary Computer STAC API (COPC from `s3://usgs-lidar-public/`)
-- **PASDA** (Pennsylvania Spatial Data Access)
-- **WV/NY/OH** state GIS portals
-- **NC OneMap** (North Carolina statewide tile index)
-- **MD iMAP** (Maryland enterprise GIS LiDAR portal)
+Open `http://localhost:5173`. Vite proxies to the local API, not the old `.111`
+compute node. `DATA_DIR` defaults to `./data`; copy `.env.example` to `.env` to
+change settings. Keep `ENABLE_ANALYSIS=false` for the terrain-only preview.
 
-## Validation
+### Import and prepare a real study area
 
-13 LiDAR-visible validation sites with natural exposed entrances across PA, WV, NC, MA, LA, and CA — wild caves, exposed mine portals, and open sinkholes. Commercialized show caves with buildings over entrances were intentionally excluded (LiDAR sees rooftops, not cave mouths). Includes 1 field-verified discovery: an undocumented cave entrance in Allegheny Cemetery, Pittsburgh (ground-truthed April 2026). Bulk validation against 111,000+ PASDA karst features, 11,249 PA abandoned mines, and USGS MRDS records across all target states.
+```sh
+uv run --no-sync python scripts/import_study_area.py /path/to/ground-dem.tif \
+  --name 'Woodland study area' \
+  --source 'USGS 3DEP · dataset name and acquisition year'
 
-## License
+uv run --no-sync python scripts/prepare_landscape.py woodland-study-area \
+  --min-zoom 12 --max-zoom 16
+```
 
-[GNU General Public License v3.0](LICENSE)
+Pass several DEM paths to import adjacent tiles. The importer copies the files,
+builds raster overviews, and records attribution and bounds in
+`data/study-areas.json`. Existing destination files are not overwritten. Confirm
+that the data is bare earth and its vertical units are meters before import.
+The preparation command refuses oversized bakes and reports first-pass and
+cached timing. Higher zooms can remain on demand or be baked for a smaller area.
+Data files and generated tiles are intentionally excluded from Git. Preserve
+file timestamps when transferring a prepared data directory (for example,
+`tar --format=pax`) so source revisions remain stable between hosts.
+
+## Single-host CPU deployment
+
+`compose.cpu.yml` is isolated from Lost Landscapes and the host's other applications:
+no fixed container names, GPU device mounts, exposed database ports, or `.111`
+connections. The API binds only to `127.0.0.1:9750` for a reverse proxy or SSH
+forward. It does not alter nginx or existing deployments.
+
+```sh
+cp .env.example .env
+# Set POSTGRES_PASSWORD in .env; leave ENABLE_ANALYSIS=false for preview.
+docker compose -f compose.cpu.yml up --build -d
+```
+
+This starts only the terrain API/UI. Put the imported `data/` directory beside
+the compose file. To add the existing CPU detection pipeline, set
+`ENABLE_ANALYSIS=true` and run:
+
+```sh
+docker compose -f compose.cpu.yml --profile analysis up --build -d
+```
+
+The profile adds PostGIS, persistent Redis, schema migrations, and one worker.
+Memory limits total approximately 10.25 GiB for API, database, Redis and worker;
+actual idle usage is lower. One fresh scan can still be expensive. The new UI
+limits each request to a bounding rectangle no more than 4 km across and the
+worker processes at most four source tiles. This can yield partial coverage;
+it is not a promise to finish an entire viewport in a fixed time.
+
+A terrain-only preview on the remote host can be viewed privately with:
+
+```sh
+ssh -L 9750:127.0.0.1:9750 noah@boredhero.dyndns.org
+```
+
+Then open `http://localhost:9750`. All application processing and storage stay
+on that host. This is a browser access tunnel, not a dependency on the desktop.
+
+## Validation and remaining work
+
+```sh
+uv run --no-sync pytest tests/unit/ -q
+cd frontend && npm run build
+```
+
+Terrain regression tests cover fractional elevation encoding, nodata handling,
+Web Mercator sampling, transparent coverage, and cache invalidation. Browser
+checks should use real data and cover 3D, comparison alignment, 2D, mobile layout,
+search, and error states.
+
+The inherited detectors still classify depressions, caves, and related terrain
+anomalies. Ruins-specific geometry detection, historical maps, field validation,
+and vertical-reference harmonization are future work. A higher zoom limit alone
+does not guarantee finer rendered mesh detail; assess it against real features.
+
+## Origin
+
+Derived from an earlier LiDAR terrain exploration project, retaining its Git
+history and GPL-3.0-or-later license. The Python package is `lost_landscapes`.
+The repository is public. `master` requires a pull request and passing CI,
+including for administrators. Push development changes to `develop`. CI runs
+Ruff, ESLint with zero warnings, and TypeScript first; only then do native
+Python tests and the production frontend build run. Tests stop on first failure.
+
+Merging develop into master triggers production CI and then deploys the exact
+tested commit to the standalone CPU host. A dedicated SSH key can invoke only
+the installed deployment script, with host identity pinned in GitHub secrets.
+The script builds a commit-tagged image before replacing the API and restores
+the previous image if health checks fail. Data and .env remain on the host. Compose reads DATABASE_URL and
+POSTGRES_PASSWORD directly from that host-only environment file; neither value
+is constructed in the checked-in Compose configuration.
+Deployments run only on changes merged into master; there is no manual trigger. The host deployment entrypoint is
+scripts/deploy_host.sh, installed separately from release files.
+
+Dependabot checks uv, npm, GitHub Actions, and Docker every Monday at 09:00
+America/New_York. Minor/patch updates are grouped per ecosystem; major updates
+remain separate for review. Version-update PRs target master and run the same
+CI checks. This schedule activates once .github/dependabot.yml reaches master.
+Security updates are separate from this weekly version-update schedule.

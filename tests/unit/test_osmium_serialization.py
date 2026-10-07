@@ -7,11 +7,8 @@ serialization test below.
 
 import threading
 import time
-from unittest.mock import patch
 
-import pytest
-
-from hole_finder.utils import osm_data
+from lost_landscapes.utils import osm_data
 
 
 def test_osmium_extract_lock_exists_and_is_a_semaphore():
@@ -143,7 +140,7 @@ def test_celery_task_time_limit_is_at_least_2hrs():
     A 50-tile scan with serialized osmium needs ~30-100 min depending on
     cache hits. 2 hr is the minimum safe ceiling.
     """
-    from hole_finder.workers.celery_app import app
+    from lost_landscapes.workers.celery_app import app
     assert app.conf.task_time_limit >= 7200, (
         f"task_time_limit={app.conf.task_time_limit}; must be >= 7200s (2 hr) "
         "to fit a 50-tile scan with serialized osmium extracts."

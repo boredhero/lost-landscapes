@@ -2,7 +2,7 @@
 
 import pytest
 
-from hole_finder.detection.registry import PassRegistry
+from lost_landscapes.detection.registry import PassRegistry
 
 
 class TestPassRegistry:

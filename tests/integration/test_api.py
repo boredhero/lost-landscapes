@@ -4,13 +4,11 @@ No live PostGIS required — uses unittest.mock to patch the DB dependency.
 Tests verify request validation, response schemas, and route wiring.
 """
 
-import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from hole_finder.main import create_app
+from lost_landscapes.main import create_app
 
 
 @pytest.fixture
@@ -30,7 +28,7 @@ class TestHealthInfo:
         assert r.status_code == 200
         d = r.json()
         assert "version" in d
-        assert d["name"] == "Hole Finder"
+        assert d["name"] == "Lost Landscapes"
 
 
 class TestOpenAPISchema:

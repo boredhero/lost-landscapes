@@ -7,9 +7,8 @@ A mutation that flipped `<=` to `<` would fail these tests immediately.
 
 import pytest
 
-from hole_finder.detection.postprocess.post_fuse_gate import apply_post_fuse_gate
+from lost_landscapes.detection.postprocess.post_fuse_gate import apply_post_fuse_gate
 from tests.conftest import make_candidate
-
 
 # ===== T1.1 — make_candidate factory behavior =====
 

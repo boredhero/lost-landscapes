@@ -6,14 +6,13 @@ from unittest.mock import patch
 
 import pytest
 
-from hole_finder.ingest.manager import (
+from lost_landscapes.ingest.manager import (
     SOURCE_REGISTRY,
     STATE_SOURCES,
     get_source,
     get_sources_for_location,
-    resolve_state,
 )
-from hole_finder.ingest.sources.usgs_3dep import USGS3DEPSource
+from lost_landscapes.ingest.sources.usgs_3dep import USGS3DEPSource
 
 
 class TestSourceRegistry:
@@ -54,19 +53,19 @@ class TestStateSources:
         assert "ky" in STATE_SOURCES["KY"]
 
     def test_sources_for_location_always_starts_with_3dep(self):
-        with patch("hole_finder.ingest.manager.resolve_state", return_value="PA"):
+        with patch("lost_landscapes.ingest.manager.resolve_state", return_value="PA"):
             sources = get_sources_for_location(40.0, -80.0)
             assert sources[0] == "usgs_3dep"
             assert "pasda" in sources
             assert sources[-1] == "tnm"
 
     def test_sources_for_location_unknown_state(self):
-        with patch("hole_finder.ingest.manager.resolve_state", return_value=None):
+        with patch("lost_landscapes.ingest.manager.resolve_state", return_value=None):
             sources = get_sources_for_location(0.0, 0.0)
             assert sources == ["usgs_3dep", "tnm"]
 
     def test_sources_for_location_state_without_specific_source(self):
-        with patch("hole_finder.ingest.manager.resolve_state", return_value="AK"):
+        with patch("lost_landscapes.ingest.manager.resolve_state", return_value="AK"):
             sources = get_sources_for_location(64.0, -150.0)
             assert sources == ["usgs_3dep", "tnm"]
 
