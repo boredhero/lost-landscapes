@@ -37,14 +37,14 @@ wheels = [
 
 [[package]]
 name = "amqp"
-version = "5.3.1"
+version = "5.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "vine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/fc/ec94a357dfc6683d8c86f8b4cfa5416a4c36b28052ec8260c77aca96a443/amqp-5.3.1.tar.gz", hash = "sha256:cddc00c725449522023bad949f70fff7b48f0b1ade74d170a6f10ab044739432", size = 129013, upload-time = "2024-11-12T19:55:44.051Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/41/63526ffa542b7dbeb671ab2252fb38e26cd2dbc68c0775cdc5ba11af78a7/amqp-5.4.1.tar.gz", hash = "sha256:79a9c0ab70e71745667f127ff80666894a734c26236b6f33149c964b096f0b20", size = 132240, upload-time = "2026-10-05T14:03:23.415Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/99/fc813cd978842c26c82534010ea849eee9ab3a13ea2b74e95cb9c99e747b/amqp-5.3.1-py3-none-any.whl", hash = "sha256:43b3319e1b4e7d1251833a93d672b4af1e40f3d632d479b98661a95f117880a2", size = 50944, upload-time = "2024-11-12T19:55:41.782Z" },
+    { url = "https://files.pythonhosted.org/packages/28/8e/25f762f8cf0da76c7b1a66a9cadc291168537598c533954b0e2c9de3a0a3/amqp-5.4.1-py3-none-any.whl", hash = "sha256:ac2b816a14a380ed10c5ebbf85a334fd68111fa476496867a5ccd2fd09926d5e", size = 51858, upload-time = "2026-10-05T14:03:18.61Z" },
 ]
 
 [[package]]
@@ -474,7 +474,7 @@ name = "cuda-bindings"
 version = "12.9.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cuda-pathfinder", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "cuda-pathfinder" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/45/e7/b47792cc2d01c7e1d37c32402182524774dadd2d26339bd224e0e913832e/cuda_bindings-12.9.4-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c912a3d9e6b6651853eed8eed96d6800d69c08e94052c292fec3f282c5a817c9", size = 12210593, upload-time = "2025-10-21T14:51:36.574Z" },
@@ -714,109 +714,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cd/71/193eabd7e7d4b903c4aa983a215509c6114915a5a237525ec562baddb868/hf_xet-1.4.2-cp37-abi3-win_amd64.whl", hash = "sha256:ad185719fb2e8ac26f88c8100562dbf9dbdcc3d9d2add00faa94b5f106aea53f", size = 3671149, upload-time = "2026-03-13T06:58:57.07Z" },
     { url = "https://files.pythonhosted.org/packages/b4/7e/ccf239da366b37ba7f0b36095450efae4a64980bdc7ec2f51354205fdf39/hf_xet-1.4.2-cp37-abi3-win_arm64.whl", hash = "sha256:32c012286b581f783653e718c1862aea5b9eb140631685bb0c5e7012c8719a87", size = 3533426, upload-time = "2026-03-13T06:58:55.46Z" },
 ]
-
-[[package]]
-name = "lost-landscapes"
-version = "0.9.2"
-source = { editable = "." }
-dependencies = [
-    { name = "alembic" },
-    { name = "asyncpg" },
-    { name = "boto3" },
-    { name = "celery", extra = ["redis"] },
-    { name = "click" },
-    { name = "fastapi" },
-    { name = "fiona" },
-    { name = "geoalchemy2" },
-    { name = "geopandas" },
-    { name = "httpx" },
-    { name = "joblib" },
-    { name = "laspy", extra = ["lazrs"] },
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "planetary-computer" },
-    { name = "pyarrow" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "pyproj" },
-    { name = "pystac-client" },
-    { name = "rasterio" },
-    { name = "redis" },
-    { name = "rtree" },
-    { name = "scikit-image" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "shapely" },
-    { name = "sqlalchemy", extra = ["asyncio"] },
-    { name = "structlog" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "whitebox" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-    { name = "testcontainers" },
-]
-gpu = [
-    { name = "segmentation-models-pytorch" },
-    { name = "torch" },
-    { name = "torchvision" },
-    { name = "ultralytics" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "alembic", specifier = ">=1.13" },
-    { name = "asyncpg", specifier = ">=0.29" },
-    { name = "boto3", specifier = ">=1.34" },
-    { name = "celery", extras = ["redis"], specifier = ">=5.4" },
-    { name = "click", specifier = ">=8.1" },
-    { name = "fastapi", specifier = ">=0.111" },
-    { name = "fiona", specifier = ">=1.9" },
-    { name = "geoalchemy2", specifier = ">=0.15" },
-    { name = "geopandas", specifier = ">=0.14" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "joblib", specifier = ">=1.3" },
-    { name = "laspy", extras = ["lazrs"], specifier = ">=2.5" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "pillow", specifier = ">=10.0" },
-    { name = "planetary-computer", specifier = ">=1.0.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7" },
-    { name = "pyarrow", specifier = ">=16.0" },
-    { name = "pydantic", specifier = ">=2.7" },
-    { name = "pydantic-settings", specifier = ">=2.2" },
-    { name = "pyproj", specifier = ">=3.6" },
-    { name = "pystac-client", specifier = ">=0.8" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.1" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "rasterio", specifier = ">=1.3" },
-    { name = "redis", specifier = ">=5.0" },
-    { name = "rtree", specifier = ">=1.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
-    { name = "scikit-image", specifier = ">=0.22" },
-    { name = "scikit-learn", specifier = ">=1.4" },
-    { name = "scipy", specifier = ">=1.12" },
-    { name = "segmentation-models-pytorch", marker = "extra == 'gpu'", specifier = ">=0.3.4" },
-    { name = "shapely", specifier = ">=2.0" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
-    { name = "structlog", specifier = ">=24.1" },
-    { name = "testcontainers", extras = ["postgres"], marker = "extra == 'dev'", specifier = ">=4.4" },
-    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
-    { name = "torch", marker = "extra == 'gpu'", specifier = ">=2.3.0" },
-    { name = "torchvision", marker = "extra == 'gpu'", specifier = ">=0.18.0" },
-    { name = "ultralytics", marker = "extra == 'gpu'", specifier = ">=8.2.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
-    { name = "whitebox", specifier = ">=2.3" },
-]
-provides-extras = ["gpu", "dev"]
 
 [[package]]
 name = "httpcore"
@@ -1070,21 +967,21 @@ wheels = [
 
 [[package]]
 name = "kombu"
-version = "5.6.2"
+version = "5.7.0b1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "amqp" },
-    { name = "packaging" },
     { name = "tzdata" },
     { name = "vine" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b6/a5/607e533ed6c83ae1a696969b8e1c137dfebd5759a2e9682e26ff1b97740b/kombu-5.6.2.tar.gz", hash = "sha256:8060497058066c6f5aed7c26d7cd0d3b574990b09de842a8c5aaed0b92cc5a55", size = 472594, upload-time = "2025-12-29T20:30:07.779Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/8d/71d8e59c7d20355eebfb4601915bd7acd76c1bb1792bbd19f67ee2e48865/kombu-5.7.0b1.tar.gz", hash = "sha256:a46820221f524a2f59367542c58044c25004cee7ba0a21a56eee8783468a4ddd", size = 599537, upload-time = "2026-10-06T06:06:29.646Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/0f/834427d8c03ff1d7e867d3db3d176470c64871753252b21b4f4897d1fa45/kombu-5.6.2-py3-none-any.whl", hash = "sha256:efcfc559da324d41d61ca311b0c64965ea35b4c55cc04ee36e55386145dace93", size = 214219, upload-time = "2025-12-29T20:30:05.74Z" },
+    { url = "https://files.pythonhosted.org/packages/37/65/128bd42c973d54cd4fbb49e5d28a31c7ae62e8905581756a7679fc8dd532/kombu-5.7.0b1-py3-none-any.whl", hash = "sha256:df8e95cfa0795a9de2236c8896be082902e01ef9d2f98f10a19ddfe0d0f2e5f1", size = 259494, upload-time = "2026-10-06T06:06:22.371Z" },
 ]
 
 [package.optional-dependencies]
 redis = [
+    { name = "packaging" },
     { name = "redis" },
 ]
 
@@ -1188,6 +1085,109 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/73/c9fdf6cb2a529c1a092ce769a12d88c8cca991194dfe641b6af12fa964d2/librt-0.8.1-cp313-cp313-win_amd64.whl", hash = "sha256:e11769a1dbda4da7b00a76cfffa67aa47cfa66921d2724539eee4b9ede780b79", size = 62000, upload-time = "2026-02-17T16:12:10.632Z" },
     { url = "https://files.pythonhosted.org/packages/d3/97/68f80ca3ac4924f250cdfa6e20142a803e5e50fca96ef5148c52ee8c10ea/librt-0.8.1-cp313-cp313-win_arm64.whl", hash = "sha256:924817ab3141aca17893386ee13261f1d100d1ef410d70afe4389f2359fea4f0", size = 52495, upload-time = "2026-02-17T16:12:11.633Z" },
 ]
+
+[[package]]
+name = "lost-landscapes"
+version = "0.9.2"
+source = { editable = "." }
+dependencies = [
+    { name = "alembic" },
+    { name = "asyncpg" },
+    { name = "boto3" },
+    { name = "celery", extra = ["redis"] },
+    { name = "click" },
+    { name = "fastapi" },
+    { name = "fiona" },
+    { name = "geoalchemy2" },
+    { name = "geopandas" },
+    { name = "httpx" },
+    { name = "joblib" },
+    { name = "laspy", extra = ["lazrs"] },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "planetary-computer" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "pyproj" },
+    { name = "pystac-client" },
+    { name = "rasterio" },
+    { name = "redis" },
+    { name = "rtree" },
+    { name = "scikit-image" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "shapely" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "structlog" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "whitebox" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+    { name = "testcontainers" },
+]
+gpu = [
+    { name = "segmentation-models-pytorch" },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "ultralytics" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.13" },
+    { name = "asyncpg", specifier = ">=0.29" },
+    { name = "boto3", specifier = ">=1.34" },
+    { name = "celery", extras = ["redis"], specifier = ">=5.4" },
+    { name = "click", specifier = ">=8.1" },
+    { name = "fastapi", specifier = ">=0.111" },
+    { name = "fiona", specifier = ">=1.9" },
+    { name = "geoalchemy2", specifier = ">=0.15" },
+    { name = "geopandas", specifier = ">=0.14" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "joblib", specifier = ">=1.3" },
+    { name = "laspy", extras = ["lazrs"], specifier = ">=2.5" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "pillow", specifier = ">=10.0" },
+    { name = "planetary-computer", specifier = ">=1.0.0" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7" },
+    { name = "pyarrow", specifier = ">=16.0" },
+    { name = "pydantic", specifier = ">=2.7" },
+    { name = "pydantic-settings", specifier = ">=2.2" },
+    { name = "pyproj", specifier = ">=3.6" },
+    { name = "pystac-client", specifier = ">=0.8" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.1" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
+    { name = "rasterio", specifier = ">=1.3" },
+    { name = "redis", specifier = ">=5.0" },
+    { name = "rtree", specifier = ">=1.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
+    { name = "scikit-image", specifier = ">=0.22" },
+    { name = "scikit-learn", specifier = ">=1.4" },
+    { name = "scipy", specifier = ">=1.12" },
+    { name = "segmentation-models-pytorch", marker = "extra == 'gpu'", specifier = ">=0.3.4" },
+    { name = "shapely", specifier = ">=2.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
+    { name = "structlog", specifier = ">=24.1" },
+    { name = "testcontainers", extras = ["postgres"], marker = "extra == 'dev'", specifier = ">=4.4" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
+    { name = "torch", marker = "extra == 'gpu'", specifier = ">=2.3.0" },
+    { name = "torchvision", marker = "extra == 'gpu'", specifier = ">=0.18.0" },
+    { name = "ultralytics", marker = "extra == 'gpu'", specifier = ">=8.2.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.29" },
+    { name = "whitebox", specifier = ">=2.3" },
+]
+provides-extras = ["gpu", "dev"]
 
 [[package]]
 name = "mako"
@@ -1488,7 +1488,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "nvidia-cublas-cu12" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/51/e123d997aa098c61d029f76663dedbfb9bc8dcf8c60cbd6adbe42f76d049/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:949452be657fa16687d0930933f032835951ef0892b37d2d53824d1a84dc97a8", size = 706758467, upload-time = "2025-06-06T21:54:08.597Z" },
@@ -1499,7 +1499,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/13/ee4e00f30e676b66ae65b4f08cb5bcbb8392c03f54f2d5413ea99a5d1c80/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:4d2dd21ec0b88cf61b62e6b43564355e5222e4a3fb394cac0db101f2dd0d4f74", size = 193118695, upload-time = "2025-03-07T01:45:27.821Z" },
@@ -1526,9 +1526,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "nvidia-cublas-cu12" },
+    { name = "nvidia-cusparse-cu12" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/48/9a13d2975803e8cf2777d5ed57b87a0b6ca2cc795f9a4f59796a910bfb80/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl", hash = "sha256:4376c11ad263152bd50ea295c05370360776f8c3427b30991df774f9fb26c450", size = 267506905, upload-time = "2025-03-07T01:47:16.273Z" },
@@ -1539,7 +1539,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')" },
+    { name = "nvidia-nvjitlink-cu12" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c2/f5/e1854cb2f2bcd4280c44736c93550cc300ff4b8c95ebe370d0aa7d2b473d/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1ec05d76bbbd8b61b06a80e1eaf8cf4959c3d4ce8e711b65ebd0443bb0ebb13b", size = 288216466, upload-time = "2025-03-07T01:48:13.779Z" },
@@ -1604,11 +1604,11 @@ wheels = [
 
 [[package]]
 name = "packaging"
-version = "26.0"
+version = "26.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/65/ee/299d360cdc32edc7d2cf530f3accf79c4fca01e96ffc950d8a52213bd8e4/packaging-26.0.tar.gz", hash = "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4", size = 143416, upload-time = "2026-01-21T20:50:39.064Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz", hash = "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79", size = 313412, upload-time = "2026-08-04T18:15:28.737Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b7/b9/c538f279a4e237a006a2c98387d081e9eb060d203d8ed34467cc0f0b9b53/packaging-26.0-py3-none-any.whl", hash = "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529", size = 74366, upload-time = "2026-01-21T20:50:37.788Z" },
+    { url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c", size = 129956, upload-time = "2026-08-04T18:15:27.159Z" },
 ]
 
 [[package]]
@@ -2291,14 +2291,14 @@ wheels = [
 
 [[package]]
 name = "redis"
-version = "6.4.0"
+version = "8.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-timeout", marker = "python_full_version < '3.11.3'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/d6/e8b92798a5bd67d659d51a18170e91c16ac3b59738d91894651ee255ed49/redis-6.4.0.tar.gz", hash = "sha256:b01bc7282b8444e28ec36b261df5375183bb47a07eb9c603f284e89cbc5ef010", size = 4647399, upload-time = "2025-08-07T08:10:11.441Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/99/604f0b666d4c616d891cf77ebb9db6bb21601344c051aebf1b72b9ff915f/redis-8.1.0.tar.gz", hash = "sha256:6e1a19beef9225c83efd689c7e6b7da2d5215b1f42cd13b7fc3714d0a09c7b25", size = 5254356, upload-time = "2026-07-30T08:51:00.269Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/02/89e2ed7e85db6c93dfa9e8f691c5087df4e3551ab39081a4d7c6d1f90e05/redis-6.4.0-py3-none-any.whl", hash = "sha256:f0544fa9604264e9464cdf4814e7d4830f74b165d52f2a330a760a88dd248b7f", size = 279847, upload-time = "2025-08-07T08:10:09.84Z" },
+    { url = "https://files.pythonhosted.org/packages/66/9d/c5731f6e3608663d4d3656fd8d3aecee8b509c3082818f5a13eae925baea/redis-8.1.0-py3-none-any.whl", hash = "sha256:a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb", size = 560618, upload-time = "2026-07-30T08:50:58.497Z" },
 ]
 
 [[package]]
@@ -3038,11 +3038,11 @@ wheels = [
 
 [[package]]
 name = "tzdata"
-version = "2025.3"
+version = "2026.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5e/a7/c202b344c5ca7daf398f3b8a477eeb205cf3b6f32e7ec3a6bac0629ca975/tzdata-2025.3.tar.gz", hash = "sha256:de39c2ca5dc7b0344f2eba86f49d614019d29f060fc4ebc8a417896a620b56a7", size = 196772, upload-time = "2025-12-13T17:45:35.667Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/31/3d74fa778a63b98b7374323befcc0be5ab3bd94afd4096a0124e7379152c/tzdata-2026.4.tar.gz", hash = "sha256:f1b8bd365d8d210c55353f4d7f8d6d8561c0ba50d704b700d195a9424bba0d79", size = 199350, upload-time = "2026-09-12T12:56:03.251Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c7/b0/003792df09decd6849a5e39c28b513c06e84436a54440380862b5aeff25d/tzdata-2025.3-py2.py3-none-any.whl", hash = "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1", size = 348521, upload-time = "2025-12-13T17:45:33.889Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/bc/8737e8d54cf51106118039b83f485a4783112fab49ea9d044b234978a46e/tzdata-2026.4-py2.py3-none-any.whl", hash = "sha256:c2169a8b0a7a5e9674da5a135ccdfb2b3e671b333ed9fed17b41f73c34476e81", size = 347494, upload-time = "2026-09-12T12:56:01.67Z" },
 ]
 
 [[package]]
