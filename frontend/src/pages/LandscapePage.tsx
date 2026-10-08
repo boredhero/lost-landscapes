@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import type { ViewState } from "react-map-gl/maplibre";
 import LandscapeMap from "../components/Landscape/LandscapeMap";
+import { lightDirections, terrainLayers } from "../components/Landscape/terrainLayers";
+import type { ReliefRadius, TerrainLayer } from "../components/Landscape/terrainLayers";
 import type {
   Bounds,
   CameraTarget,
@@ -47,6 +49,18 @@ interface Catalog {
   tile_count: number;
   coverage: Bounds[];
   analysis_enabled: boolean;
+  visualizations?: {
+    algorithm_version: string;
+    sources: {
+      id: string;
+      geographic_bounds: Bounds;
+      eligible: boolean;
+      reason: string | null;
+      crs: string | null;
+      resolution_m: [number, number] | null;
+      elevation_units: string;
+    }[];
+  };
 }
 const emptyCatalog: Catalog = {
   revision: "",
@@ -76,6 +90,9 @@ function message(error: unknown) {
 export default function LandscapePage() {
   const client = useQueryClient();
   const [mode, setMode] = useState<MapMode>("lidar");
+  const [terrainLayer, setTerrainLayer] = useState<TerrainLayer>("relief");
+  const [reliefRadius, setReliefRadius] = useState<ReliefRadius>(25);
+  const [lightAzimuth, setLightAzimuth] = useState(315);
   const [is3D, set3D] = useState(true);
   const [exaggeration, setExaggeration] = useState(1.25);
   const [split, setSplit] = useState(50);
@@ -165,6 +182,16 @@ export default function LandscapePage() {
       view.latitude >= s &&
       view.latitude <= n,
   );
+  const layerInfo = terrainLayers.find((layer) => layer.id === terrainLayer)!;
+  const inspectingTerrain = terrainLayer !== "relief" && mode !== "aerial";
+  const currentArea = catalog.areas.find(({ bounds: [w, s, e, n] }) =>
+    view.longitude >= w && view.longitude <= e && view.latitude >= s && view.latitude <= n,
+  );
+  const currentSources = (catalog.visualizations?.sources ?? []).filter(({ geographic_bounds }) => {
+    if (!geographic_bounds) return false;
+    const [w, s, e, n] = geographic_bounds;
+    return view.longitude >= w && view.longitude <= e && view.latitude >= s && view.latitude <= n;
+  });
   const shownAreas = catalog.areas.filter((area) =>
     `${area.name} ${area.description}`
       .toLowerCase()
@@ -335,6 +362,9 @@ export default function LandscapePage() {
       <LandscapeMap
         mode={mode}
         revision={catalog.revision}
+        terrainLayer={terrainLayer}
+        reliefRadius={reliefRadius}
+        lightAzimuth={lightAzimuth}
         is3D={is3D}
         exaggeration={exaggeration}
         split={split}
@@ -650,6 +680,53 @@ export default function LandscapePage() {
             </button>
           </div>
           <h2>Read the relief.</h2>
+          <fieldset className="terrain-layer-picker">
+            <legend>Terrain view</legend>
+            {terrainLayers.map((layer) => (
+              <label key={layer.id}>
+                <input type="radio" name="terrain-layer" value={layer.id}
+                  checked={terrainLayer === layer.id}
+                  onChange={() => {
+                    setTerrainLayer(layer.id);
+                    setTerrainError(false);
+                    if (mode === "aerial") setMode("lidar");
+                  }} />
+                {layer.label}
+              </label>
+            ))}
+          </fieldset>
+          <p className="muted">{layerInfo.description}</p>
+          {terrainLayer === "local-relief" && (
+            <label className="terrain-select">
+              Neighborhood half-width
+              <select value={reliefRadius} onChange={(event) => {
+                setReliefRadius(Number(event.target.value) as ReliefRadius);
+                setTerrainError(false);
+              }}>
+                {[10, 25, 50].map((radius) => <option key={radius} value={radius}>{radius} m</option>)}
+              </select>
+              <span className="muted">A square neighborhood extends this far in each direction, rounded up to whole source cells.</span>
+            </label>
+          )}
+          {terrainLayer === "hillshade" && (
+            <label className="terrain-select">
+              Light from
+              <select value={lightAzimuth} onChange={(event) => {
+                setLightAzimuth(Number(event.target.value));
+                setTerrainError(false);
+              }}>
+                {lightDirections.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <span className="muted">Light is 45° above the horizon.</span>
+            </label>
+          )}
+          {terrainLayer !== "relief" && (
+            <p className="muted">Calculated on the source grid. Blank areas lack supported data or complete neighborhoods, or exceed the processing limit. Zoom 14 or closer is required.</p>
+          )}
+          {terrainLayer !== "relief" && view.zoom < 14 && (
+            <button className="primary-button" onClick={() => move({ zoom: 15 })}>Zoom to detail</button>
+          )}
+          <div className="panel-divider" />
           <label className="range-label">
             Elevation exaggeration <output>{exaggeration.toFixed(2)}×</output>
             <input
@@ -695,8 +772,26 @@ export default function LandscapePage() {
           </label>
           <p className="muted">
             Beyond LiDAR coverage, the map uses lower-resolution regional
-            terrain.
+            terrain for 3D shape and the Landscape view. Inspection layers use local data only.
           </p>
+          <details className="terrain-provenance">
+            <summary>About the data here</summary>
+            <p>{currentArea?.source ?? "No named study area at the map center."}</p>
+            {currentArea && <p>Catalog resolution: {currentArea.resolution_m} m. Zooming in does not add ground detail.</p>}
+            {currentSources.map((source) => (
+              <div className="terrain-source" key={source.id}>
+                <strong>{source.id}</strong>
+                <p>{source.crs ?? "CRS unknown"} · Elevation: {source.elevation_units}</p>
+                {source.resolution_m && <p>Native spacing: {source.resolution_m.map((value) => Number(value.toFixed(3))).join(" × ")} m</p>}
+                {source.resolution_m && terrainLayer === "local-relief" && <p>Effective half-width: {source.resolution_m.map((value) => Number((Math.ceil(reliefRadius / value) * value).toFixed(3))).join(" × ")} m</p>}
+                {!source.eligible && <p>Inspection unavailable: {source.reason}</p>}
+              </div>
+            ))}
+            {!currentSources.length && <p>No local source at the map center.</p>}
+            <p>Survey date and vertical datum are not verified by this viewer. Missing elevation units are assumed to be metres.</p>
+            <p>Coverage outlines show file extents; holes and incomplete edge neighborhoods may remain inside them. Exaggeration changes the 3D display, not calculated slope or local relief.</p>
+            {catalog.visualizations && <p>Visualization method: {catalog.visualizations.algorithm_version}</p>}
+          </details>
         </aside>
       )}
       {mode === "compare" && (
@@ -715,20 +810,31 @@ export default function LandscapePage() {
       )}
       <div className="map-bottom">
         <div className="terrain-status">
-          <span className={`status-dot ${insideCoverage ? "" : "muted-dot"}`} />
+          <span className={`status-dot ${insideCoverage && !inspectingTerrain ? "" : "muted-dot"}`} />
           <div>
             <strong>
               {loadingTiles
                 ? "Loading terrain…"
+                : inspectingTerrain
+                  ? view.zoom < 14 ? "Zoom in for terrain detail" : layerInfo.label
                 : insideCoverage
                   ? "LiDAR terrain"
                   : "Regional terrain"}
             </strong>
             <small>
-              {insideCoverage
-                ? (activeArea?.source ?? "Imported elevation data")
+              {inspectingTerrain && !currentSources.some((source) => source.eligible)
+                ? "No supported local source at map center"
+                : insideCoverage
+                ? (currentArea?.source ?? "Imported elevation data")
                 : "Zoom to a study area for fine ground detail"}
             </small>
+            {inspectingTerrain && (
+              <div className={`terrain-legend legend-${terrainLayer}`} aria-label={`${layerInfo.label} legend`}>
+                <span className="legend-ramp" />
+                <span>{terrainLayer === "slope" ? "0°" : terrainLayer === "local-relief" ? "−2 m or lower" : "Shadow"}</span>
+                <span>{terrainLayer === "slope" ? "60° or steeper" : terrainLayer === "local-relief" ? "+2 m or higher" : "Light"}</span>
+              </div>
+            )}
           </div>
         </div>
         <button

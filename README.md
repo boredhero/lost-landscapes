@@ -18,6 +18,36 @@ detect or verify archaeological ruins.
 The original specialist interface remains at `/playground`, loaded separately.
 The default preview works without PostGIS, Redis, or a detection worker.
 
+### Terrain inspection views
+
+Open **Terrain controls** to switch between the default Landscape view,
+Slope, Local relief, and Directional light. Local relief shows signed elevation
+relative to a square neighborhood mean, with 10, 25, or 50 metre half-widths
+(rounded up to source cells). Blue indicates lower ground and orange higher
+ground; the fixed colour scale saturates at −2/+2 m. Slope uses a fixed
+0–60° scale. Directional light offers eight compass directions at 45° altitude.
+These are visualization aids, not archaeological classifications.
+
+Inspection layers calculate on the native DEM grid before resampling for the
+map. They use only eligible local north-up projected metre rasters with source
+spacing at most 5 m, and are available at zoom 14–18 (higher map zooms enlarge
+the final tile). Exaggerating the 3D view does not change their calculations.
+The data panel reports source eligibility, native spacing, effective neighborhood
+size and elevation units. Undeclared elevation units are explicitly assumed to
+be metres; acquisition dates and vertical references remain unverified.
+
+Complete neighborhoods are required. Missing cells and edges of separate source
+rasters remain blank, including within file-coverage outlines. Separate rasters
+are not yet stitched for these calculations. Reads are capped at four million
+native cells per source and eight million per tile request; oversized windows
+are skipped rather than silently coarsened. Regional fallback elevation never
+enters these inspection calculations. Tiles are cached by source, algorithm and
+visualization settings.
+
+The [staged development plan](docs/development-plan.md) covers remaining terrain
+views, measurements, investigations, historical context, separate detector
+families, scientific evaluation and locally trained models. Stage 1 is underway.
+
 ## Terrain and performance
 
 The new `/api/landscape` renderer reads intersecting LiDAR DEMs into 512-pixel
@@ -50,11 +80,7 @@ Python dependencies use `uv`; geospatial processing also needs PDAL, GDAL and
 WhiteboxTools. The Docker image supplies native tools. For a local environment:
 
 ```sh
-# The repository keeps a version placeholder, as in the upstream build.
-sed -i 's/__LOSTLANDSCAPES_VERSION__/0.9.2/' pyproject.toml
-uv sync --extra dev
-# Restore the placeholder after installing; uv run --no-sync uses the environment.
-git restore pyproject.toml
+uv sync --frozen --extra dev --python 3.12
 uv run --no-sync uvicorn lost_landscapes.main:app --host 127.0.0.1 --port 8000
 ```
 

@@ -19,7 +19,8 @@
   box-sizing: border-box;
 }
 .landscape-app button,
-.landscape-app input {
+.landscape-app input,
+.landscape-app select {
   font: inherit;
 }
 .landscape-app button {
@@ -34,7 +35,9 @@
 }
 .landscape-app button:focus-visible,
 .landscape-app a:focus-visible,
-.landscape-app input:focus-visible {
+.landscape-app input:focus-visible,
+.landscape-app select:focus-visible,
+.landscape-app summary:focus-visible {
   outline: 3px solid #ba782b;
   outline-offset: 3px;
 }
@@ -354,6 +357,61 @@
   right: 90px;
   width: 280px;
 }
+.terrain-layer-picker {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.terrain-layer-picker legend {
+  font-size: 12px;
+  font-weight: 650;
+  margin-bottom: 9px;
+}
+.terrain-layer-picker label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.terrain-layer-picker label:has(input:checked) {
+  background: #e4e9dc;
+  border-color: #647469;
+}
+.terrain-layer-picker input { accent-color: var(--ink); }
+.terrain-select { display: grid; gap: 8px; font-size: 12px; }
+.terrain-select select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+.terrain-select .muted { margin: 0; }
+.terrain-provenance { font-size: 11px; color: var(--muted); }
+.terrain-provenance summary { cursor: pointer; padding: 10px 0; color: var(--ink); }
+.terrain-source { border-top: 1px solid var(--line); padding-top: 10px; }
+.terrain-source strong { overflow-wrap: anywhere; font-weight: 500; }
+.terrain-provenance p { margin: 8px 0; }
+.terrain-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 7px;
+  font-size: 9px;
+}
+.terrain-legend span:last-child { text-align: right; }
+.legend-ramp { grid-column: 1 / -1; height: 6px; border: 1px solid #647469; }
+.legend-slope .legend-ramp { background: linear-gradient(to right, white, black); }
+.legend-hillshade .legend-ramp { background: linear-gradient(to right, black, white); }
+.legend-local-relief .legend-ramp { background: linear-gradient(to right, #2c70a8, #f4f0e2, #c25723); }
 .landscape-panel h2 {
   font:
     normal 29px/1.2 Georgia,
@@ -541,7 +599,7 @@
 }
 .comparison-control {
   position: absolute;
-  bottom: 104px;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -555,6 +613,9 @@
   width: 270px;
   font-size: 11px;
   box-shadow: 0 4px 20px #1b322626;
+}
+.landscape-app:has(.comparison-control) .landscape-panel {
+  max-height: calc(100dvh - 300px);
 }
 .comparison-control input {
   min-width: 0;
@@ -821,8 +882,11 @@
     bottom: 96px;
   }
   .comparison-control {
-    bottom: 100px;
+    bottom: 140px;
     width: 240px;
+  }
+  .landscape-app:has(.comparison-control) .landscape-panel {
+    max-height: calc(100dvh - 380px);
   }
   .comparison-caption {
     top: 176px;

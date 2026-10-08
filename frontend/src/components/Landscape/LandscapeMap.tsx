@@ -12,6 +12,7 @@ import type {
 } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import type { Detection } from "../../types";
+import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type MapMode = "lidar" | "aerial" | "compare";
@@ -27,6 +28,9 @@ export interface CameraTarget {
 interface Props {
   mode: MapMode;
   revision: string;
+  terrainLayer: TerrainLayer;
+  reliefRadius: ReliefRadius;
+  lightAzimuth: number;
   is3D: boolean;
   exaggeration: number;
   split: number;
@@ -48,8 +52,14 @@ const initial = {
   bearing: -25,
 };
 
-function style(aerial: boolean, revision: string): StyleSpecification {
+function style(
+  aerial: boolean, revision: string, terrainLayer: TerrainLayer = "relief",
+  reliefRadius: ReliefRadius = 25, lightAzimuth = 315,
+): StyleSpecification {
   const suffix = `?v=${encodeURIComponent(revision)}`;
+  const derivative = terrainLayer !== "relief";
+  const parameters = terrainLayer === "local-relief" ? `&radius_m=${reliefRadius}`
+    : terrainLayer === "hillshade" ? `&azimuth=${lightAzimuth}` : "";
   return {
     version: 8,
     sources: {
@@ -63,8 +73,9 @@ function style(aerial: boolean, revision: string): StyleSpecification {
       },
       relief: {
         type: "raster",
-        tiles: [`/api/landscape/tiles/relief/{z}/{x}/{y}.png${suffix}`],
+        tiles: [`/api/landscape/tiles/${terrainLayer}/{z}/{x}/{y}.png${suffix}${parameters}`],
         tileSize: 512,
+        minzoom: derivative ? 14 : 0,
         maxzoom: 18,
       },
       aerial: {
@@ -96,7 +107,7 @@ function style(aerial: boolean, revision: string): StyleSpecification {
             },
           ]
         : [
-            {
+            ...(!derivative ? [{
               id: "context-shade",
               type: "hillshade" as const,
               source: "terrain",
@@ -106,7 +117,7 @@ function style(aerial: boolean, revision: string): StyleSpecification {
                 "hillshade-highlight-color": "#e0e5cf",
                 "hillshade-illumination-anchor": "map" as const,
               },
-            },
+            }] : []),
             {
               id: "relief",
               type: "raster" as const,
@@ -125,6 +136,9 @@ export default function LandscapeMap(props: Props) {
   const {
     mode,
     revision,
+    terrainLayer,
+    reliefRadius,
+    lightAzimuth,
     is3D,
     exaggeration,
     split,
@@ -141,8 +155,8 @@ export default function LandscapeMap(props: Props) {
   const map = useRef<MapRef>(null);
   const [camera, setCamera] = useState(initial);
   const baseStyle = useMemo(
-    () => style(mode === "aerial", revision),
-    [mode, revision],
+    () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth),
+    [mode, revision, terrainLayer, reliefRadius, lightAzimuth],
   );
   const aerialStyle = useMemo(() => style(true, revision), [revision]);
   const terrain = useMemo(
