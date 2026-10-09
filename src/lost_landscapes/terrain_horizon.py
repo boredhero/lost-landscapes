@@ -11,10 +11,46 @@ import numpy as np
 from scipy.ndimage import minimum_filter
 
 LAYERS = ("svf", "openness-positive", "openness-negative")
+ADVANCED_LAYERS = (*LAYERS, "vat")
 DIRECTIONS = 16
 MAX_RADIUS_CELLS = 128
 MAX_WORK = 240_000_000  # sampled cell comparisons per request, not elapsed time
 MIN_ZOOM = 16
+VAT_RECIPE = {
+    "name": "RVT general-terrain VAT with shared metre search radius",
+    "hillshade": {"azimuth": 315, "altitude": 35, "range": [0, 1]},
+    "slope": {"range_degrees": [0, 50], "inverted": True, "blend": "luminosity", "opacity": 0.5},
+    "openness_positive": {"range_degrees": [68, 93], "blend": "overlay", "opacity": 0.5},
+    "svf": {"range": [0.7, 1], "blend": "multiply", "opacity": 0.25},
+    "order_bottom_to_top": ["hillshade", "slope", "openness_positive", "svf"],
+}
+
+
+def blend_vat(slope_degrees, hillshade, svf, openness_degrees):
+    """Fixed RVT general-terrain ranges and standard grayscale blend semantics."""
+    slope = 1 - np.clip(slope_degrees / 50, 0, 1)
+    openness = np.clip((openness_degrees - 68) / 25, 0, 1)
+    sky = np.clip((svf - 0.7) / 0.3, 0, 1)
+    # For grayscale inputs, luminosity blend gives the active grayscale value.
+    base = 0.5 * np.clip(hillshade, 0, 1) + 0.5 * slope
+    overlay = np.where(base <= 0.5, 2 * base * openness,
+                       1 - 2 * (1 - base) * (1 - openness))
+    base = 0.5 * base + 0.5 * overlay
+    return (base * (0.75 + 0.25 * sky)).astype(np.float32)
+
+
+def vat(elevation, spacing_x, spacing_y, radius_m):
+    """Blend four physical native-grid views, preserving shared missing support."""
+    views = horizon_views(elevation, spacing_x, spacing_y, radius_m, ("svf", "openness-positive"))
+    values = np.asarray(elevation, dtype=np.float64)
+    if min(values.shape) < 3:
+        return views["svf"]
+    dy, dx = np.gradient(values, spacing_y, spacing_x)
+    slope = np.degrees(np.arctan(np.hypot(dx, dy)))
+    az, alt = math.radians(315), math.radians(35)
+    shade = np.clip((-dx * math.sin(az) * math.cos(alt) + dy * math.cos(az) * math.cos(alt)
+                     + math.sin(alt)) / np.sqrt(1 + dx * dx + dy * dy), 0, 1)
+    return blend_vat(slope, shade, views["svf"], views["openness-positive"])
 
 
 @lru_cache(maxsize=128)

@@ -34,6 +34,10 @@ zoom 16 or closer and bounded native support. Openness is displayed over 60–12
 with negative openness using reversed shading; flat ground is 90°. SVF is shown
 over 0–1. See [advanced terrain methods and reference checks](docs/advanced-terrain.md).
 
+**Archaeological topography (VAT)** blends hillshade, slope, positive openness
+and SVF using fixed general-terrain settings. It shares the horizon radius and
+zoom limits; its brightness is a visual composite, not a detection score.
+
 Inspection layers calculate on the native DEM grid before resampling for the
 map. They use only eligible local north-up projected metre rasters with source
 spacing at most 5 m, and are available at zoom 14–18 (16–18 for horizon views; higher map zooms enlarge
@@ -68,7 +72,9 @@ not automatically declared compatible. The source panel explains eligibility.
 
 The [staged development plan](docs/development-plan.md) covers remaining terrain
 views, measurements, investigations, historical context, separate detector
-families, scientific evaluation and locally trained models. Stage 1 is underway.
+families, scientific evaluation and locally trained models. Stage 1's bounded
+terrain views and reference/performance checks are implemented; later product
+stages and production release remain pending.
 
 The [evaluation protocol](docs/evaluation-protocol.md) defines versioned survey,
 region, label and prediction contracts. An offline validator checks evidence and

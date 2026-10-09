@@ -412,6 +412,7 @@
 .legend-slope .legend-ramp { background: linear-gradient(to right, white, black); }
 .legend-hillshade .legend-ramp { background: linear-gradient(to right, black, white); }
 .legend-svf .legend-ramp, .legend-openness-positive .legend-ramp { background: linear-gradient(to right, black, white); }
+.legend-vat .legend-ramp { background: linear-gradient(to right, black, white); }
 .legend-openness-negative .legend-ramp { background: linear-gradient(to right, white, black); }
 .legend-local-relief .legend-ramp { background: linear-gradient(to right, #2c70a8, #f4f0e2, #c25723); }
 .landscape-panel h2 {

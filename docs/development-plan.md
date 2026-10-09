@@ -1,8 +1,9 @@
 # Research-informed development plan
 
-Status: implementation plan; the first terrain slice and evaluation foundation
-are implemented for incremental delivery on `develop`. Stage 1 and the full
-evaluation harness remain incomplete; production release is pending.
+Status: Stage 1's bounded terrain visualization implementation and reference/
+performance checks are complete for delivery on `develop`. Production release
+is pending. The evaluation foundation is implemented; the full scientific
+evaluation harness and later product stages remain incomplete.
 The acceptance criteria below are release gates, not claims that
 every item has passed. Later stages remain pending. This plan follows the CPU deployment
 and delivery rules in `CLAUDE.md`.
@@ -68,8 +69,8 @@ for a useful explorer.
    and review remain dependencies; synthetic results are not accuracy evidence.
 3. Delivery C1 now implements compatible-source terrain neighborhoods with
    explicit provenance and grid checks. Delivery C2 adds genuine SVF and both
-   openness views with pinned RVT reference comparisons. VAT and expanded
-   performance checks are next, with bounded CPU work.
+   openness views with pinned RVT reference comparisons. Delivery C3 adds VAT and
+   expanded performance checks. Stage 1 is implemented within documented limits.
 4. Begin D's persistence contract before adding more investigation UI or detector
    output formats. Define one investigation schema with
    geometry, observations, proposed interpretations, evidence, provenance,
@@ -121,14 +122,17 @@ features below; the roadmap is our engineering proposal, not a published recipe.
 
 ## Stage 1 — Reliable terrain visualization foundation
 
-**Status:** PARTIAL — first visualization slice implemented and checked locally.
+**Status:** IMPLEMENTED — bounded terrain views, source joins, reference comparisons
+and local performance checks delivered in A/C1/C2/C3; production release pending.
 **Depends on:** existing imported DEM renderer and disk cache.
 
 The first slice includes slope, signed local relief with 10/25/50 m square
 half-widths, eight directional-light presets, source provenance, and live explorer
 controls. Delivery C1 adds compatible-source neighborhoods; C2 adds genuine SVF
-and positive/negative openness. VAT and broader performance evaluation remain follow-ups;
-Stage 1 is not complete.
+and positive/negative openness; C3 adds documented VAT and expanded local
+performance checks. Source-quality limitations, real missing ground, unknown
+joining metadata and workload caps remain explicit. Production capacity testing
+and additional regional data are ongoing follow-ups, not implied by this status.
 
 Deliver existing multidirectional relief plus slope, directional hillshade, and
 signed simple local relief presets in the main explorer. Directional hillshade
@@ -201,8 +205,8 @@ of LiDAR coverage or detector accuracy. Delivery C1 provides source mosaicking
 when verified compatibility metadata is available; explicit quality visualization
 and wider real-data validation remain follow-up work.
 
-**Stage 1 follow-up deliverables:** add genuine sky-view factor, positive and
-negative openness, and a documented visualization-for-archaeological-topography
+**Advanced-view deliverables (completed in C2/C3):** genuine sky-view factor,
+positive and negative openness, and a documented visualization-for-archaeological-topography
 (VAT) composite using established algorithms and blending settings [8]. These
 are visualization improvements in their own right, not work deferred until new
 detectors. Delivery C1 supplies mosaic-aware source-edge support for compatible
@@ -429,8 +433,8 @@ slope, 152–472 ms local relief and 96–536 ms directional hillshade, with abo
 benchmarks or proof of speedup. Joined synthetic correctness tests exercise the
 new path separately. The window/source/read caps remain enforced.
 
-Next: genuine sky-view factor and positive/negative openness, followed by a
-documented VAT composite. Full Stage 1 completion remains pending.
+At the end of C1, the remaining work was genuine sky-view factor, positive/negative
+openness and VAT. These are delivered in C2/C3 below.
 
 ### Delivery C2 — SVF and positive/negative openness
 
@@ -449,7 +453,36 @@ Browser review passed all new views, radius switching, mobile layout and 3D
 comparison with zero JavaScript errors, failed terrain requests or overflow.
 Methods and reproduction commands are in [advanced terrain](advanced-terrain.md).
 
-VAT and the expanded performance evaluation remain in this requested work.
+VAT and the expanded performance evaluation follow in C3.
+
+### Delivery C3 — VAT and expanded performance checks
+
+Implemented the four-component general-terrain VAT composite with fixed RVT
+normalization ranges, standard blend/opacity semantics and 315°/35° hillshade.
+It uses the selected physical search radius for both horizon components and
+preserves missing support. Brightness is explicitly a visualization rather than
+a physical measurement or detection score. The precise recipe is published in
+catalog metadata, the UI and [advanced terrain documentation](advanced-terrain.md).
+
+Eighteen official-function reference composites agree within 0.00002 normalized
+brightness; observed maximum difference was 0.00000215. The generator records
+the reference revision and settings, including background copies needed to
+preserve opacity when calling RVT's in-place overlay function.
+
+The repeatable benchmark covers two locations, three zooms, three radii, all four
+advanced views and legacy relief, on imported and synthetic joined terrain.
+Three runs cover 208 cold cases and their byte-identical warm-cache repeats,
+including one/two-worker comparisons. No sampled tile was entirely transparent.
+Peak process RSS was 168–194 MiB; imported advanced-view cold p95 was 966–1266 ms.
+Raw results are in `docs/benchmarks/`; these are local render/cache measurements,
+not HTTP response times or production capacity claims.
+
+Local validation: 300 tests passed and 72 native-tool/optional-dependency checks
+were skipped; Ruff, frontend ESLint, TypeScript and production build passed.
+Final browser checks passed SVF, both openness views, VAT, radius switching,
+2D/3D, aerial comparison and mobile layout with no JavaScript errors, failed
+terrain requests or horizontal overflow. Angled 3D remains available for all views.
+Next product milestone: Delivery D, measurements and persistent investigations.
 
 Deliver stages as small reviewable changes; a stage can span multiple PRs.
 Documentation status and validation results must reflect actual implementation.

@@ -20,8 +20,8 @@ from scipy.ndimage import minimum_filter, uniform_filter
 
 from lost_landscapes import terrain_horizon as horizon
 
-VERSION = "native-v4-horizon"
-LAYERS = ("slope", "local-relief", "hillshade", *horizon.LAYERS)
+VERSION = "native-v5-vat"
+LAYERS = ("slope", "local-relief", "hillshade", *horizon.ADVANCED_LAYERS)
 RADII = (10, 25, 50)
 AZIMUTHS = tuple(range(0, 360, 45))
 MIN_ZOOM = 14
@@ -32,7 +32,7 @@ METRE_UNITS = ("m", "metre", "meter", "metres", "meters")
 
 
 def min_zoom(layer):
-    return horizon.MIN_ZOOM if layer in horizon.LAYERS else MIN_ZOOM
+    return horizon.MIN_ZOOM if layer in horizon.ADVANCED_LAYERS else MIN_ZOOM
 
 
 def source_info(src):
@@ -99,6 +99,7 @@ def metadata(records):
         "layers": list(LAYERS),
         "min_zoom": MIN_ZOOM,
         "layer_min_zoom": {layer: min_zoom(layer) for layer in LAYERS},
+        "vat": horizon.VAT_RECIPE,
         "horizon": {"directions": horizon.DIRECTIONS, "max_radius_cells": horizon.MAX_RADIUS_CELLS,
                     "max_sample_comparisons": horizon.MAX_WORK,
                     "svf_range": [0, 1], "openness_display_degrees": [60, 120],
@@ -193,6 +194,8 @@ def derivatives(elevation, spacing_x, spacing_y, layer, radius_m=25, azimuth=315
         raise ValueError("Unsupported visualization option")
     if not all(math.isfinite(v) and v > 0 for v in (spacing_x, spacing_y)):
         raise ValueError("Spacing must be finite and positive")
+    if layer == "vat":
+        return horizon.vat(elevation, spacing_x, spacing_y, radius_m)
     if layer in horizon.LAYERS:
         return horizon.horizon_views(elevation, spacing_x, spacing_y, radius_m, (layer,))[layer]
     values = np.asarray(elevation, dtype=np.float64)
@@ -275,7 +278,7 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
             rx = math.ceil(radius_m / src.res[0]) if layer == "local-relief" else 1
             ry = math.ceil(radius_m / src.res[1]) if layer == "local-relief" else 1
             plan = None
-            if layer in horizon.LAYERS:
+            if layer in horizon.ADVANCED_LAYERS:
                 if radius_m not in source_info(src)["horizon_radius_presets_m"]:
                     continue
                 plan = horizon.search_plan(src.res[0], src.res[1], radius_m)

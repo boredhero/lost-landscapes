@@ -702,6 +702,7 @@ export default function LandscapePage() {
             ))}
           </fieldset>
           <p className="muted">{layerInfo.description}</p>
+          {terrainLayer === "vat" && <p className="muted">General-terrain VAT: hillshade lit from northwest at 35°, inverted slope 0–50° at 50%, positive openness 68–93° overlay at 50%, and SVF 0.7–1 multiply at 25%. The selected search radius applies to both horizon components.</p>}
           {usesTerrainRadius(terrainLayer) && (
             <label className="terrain-select">
               {isHorizonLayer(terrainLayer) ? "Search radius" : "Neighborhood half-width"}

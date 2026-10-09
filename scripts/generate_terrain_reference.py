@@ -23,12 +23,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rvt-source", required=True, type=Path)
     parser.add_argument("--output", type=Path, default=Path("tests/fixtures/terrain-reference"))
+    parser.add_argument("--include-vat", action="store_true", help="Also run official blending functions (requires Matplotlib)")
     args = parser.parse_args()
     revision = subprocess.check_output(["git", "-C", str(args.rvt_source), "rev-parse", "HEAD"], text=True).strip()
     if revision != RVT_COMMIT:
         parser.error(f"Expected RVT commit {RVT_COMMIT}, got {revision}")
     vis = load_module(args.rvt_source / "rvt" / "vis.py", "reference_vis")
-    data, cases = {}, []
+    blend = load_module(args.rvt_source / "rvt" / "blend_func.py", "reference_blend") if args.include_vat else None
+    recipe = json.loads((args.rvt_source / "settings" / "blender_VAT.json").read_text())
+    data, vat_data, cases = {}, {}, []
     rows, cols = np.indices((129, 129), dtype=np.float32)
     for spacing in (1, 2, 3):
         x, y = (cols - 64) * spacing, (rows - 64) * spacing
@@ -53,9 +56,36 @@ def main():
                 data[key + "/svf"] = positive["svf"][interior]
                 data[key + "/openness-positive"] = positive["opns"][interior]
                 data[key + "/openness-negative"] = negative["opns"][interior]
+                if blend is not None:
+                    images = {
+                        "Sky-View Factor": positive["svf"], "Openness - Positive": positive["opns"],
+                        "Slope gradient": vis.slope_aspect(dem.copy(), spacing, spacing, output_units="degree")["slope"],
+                        "Hillshade": vis.hillshade(dem.copy(), spacing, spacing, sun_azimuth=315, sun_elevation=35),
+                    }
+                    output = None
+                    for layer in reversed(recipe["combination"]["layers"]):
+                        active = blend.normalize_image(layer["visualization_method"],
+                                                       images[layer["visualization_method"]].copy(),
+                                                       layer["min"], layer["max"], layer["norm"].lower())
+                        if output is None:
+                            output = active
+                        else:
+                            # RVT overlay mutates its background. Preserve the original for opacity.
+                            top = blend.blend_images(layer["blend_mode"], active, output.copy())
+                            output = blend.render_images(top, output, layer["opacity"])
+                    vat_data[key] = output[interior]
                 cases.append({"key": key, "spacing_m": spacing, "radius_m": radius, "margin_cells": cells})
     args.output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(args.output / "horizons.npz", **data)
+    if blend is not None:
+        np.savez_compressed(args.output / "vat.npz", **vat_data)
+        (args.output / "vat-manifest.json").write_text(json.dumps({
+            "revision": RVT_COMMIT, "settings": "settings/blender_VAT.json", "recipe": recipe,
+            "hillshade_azimuth": 315, "hillshade_altitude": 35,
+            "radius": "Shared physical radius from horizon fixture cases, converted to native cells",
+            "reference": "rvt.vis plus rvt.blend_func.normalize_image, blend_images, render_images",
+            "opacity": "Background copies preserve standard opacity semantics across in-place overlay calls",
+        }, indent=2) + "\n")
     (args.output / "manifest.json").write_text(json.dumps({
         "source": "https://github.com/EarthObservation/RVT_py", "revision": RVT_COMMIT,
         "reference_function": "rvt.vis.sky_view_factor", "directions": 16, "noise": 0,
