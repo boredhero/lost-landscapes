@@ -126,7 +126,8 @@ async def test_legacy_callback_respects_cancellation(monkeypatch):
     session.commit.assert_not_called()
 
 
-async def test_queue_failure_returns_failure_not_permanent_pending(monkeypatch):
+async def test_queue_failure_returns_failure_not_permanent_pending(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(jobs.settings, "enable_analysis", True)
     record = job()
     session = session_for(record)

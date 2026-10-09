@@ -1,11 +1,9 @@
 """Job submission, status, and management endpoints."""
 
 import math
-import re
 import time
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -18,6 +16,7 @@ from lost_landscapes.api.schemas import JobCreate, JobList, JobStatus
 from lost_landscapes.config import settings
 from lost_landscapes.db.models import Job, JobType
 from lost_landscapes.db.models import JobStatus as JobStatusEnum
+from lost_landscapes.pass_configs import pass_config_path
 from lost_landscapes.utils.log_manager import log
 
 router = APIRouter(tags=["jobs"])
@@ -87,8 +86,10 @@ async def create_job(
             raise ValueError("Invalid or oversized scan bounds")
     except (ValueError, TypeError, KeyError) as exc:
         raise HTTPException(422, "Choose an area less than 4 km across") from exc
-    if not re.fullmatch(r"[a-z0-9_]+", body.pass_config or "") or not (Path("configs/passes") / f"{body.pass_config}.toml").is_file():
-        raise HTTPException(422, "Unknown analysis configuration")
+    try:
+        pass_config_path(body.pass_config)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     log.info("create_job_request", job_type=body.job_type, pass_config=body.pass_config, has_bbox=body.bbox is not None)
     try:
         job_type = JobType(body.job_type.lower())

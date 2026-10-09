@@ -26,6 +26,7 @@ import rasterio
 from shapely.ops import transform as shapely_transform
 
 from lost_landscapes.config import settings
+from lost_landscapes.pass_configs import pass_config_path
 from lost_landscapes.utils.crs import resolve_epsg
 from lost_landscapes.utils.log_manager import log, set_request_id
 from lost_landscapes.utils.perf import new_profiler
@@ -175,9 +176,7 @@ def run_detection(self, dem_path: str, derivative_paths: dict, pass_config_name:
              total_mb=round(total_bytes / 1e6, 1))
 
     # Run passes
-    config_path = Path(f"/app/configs/passes/{pass_config_name}.toml")
-    if not config_path.exists():
-        config_path = settings.data_dir.parent / f"configs/passes/{pass_config_name}.toml"
+    config_path = pass_config_path(pass_config_name)
 
     runner = PassRunner.from_toml(config_path)
     candidates = runner.run_on_array(dem, transform, crs_code, derivs)
@@ -396,9 +395,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         from lost_landscapes.detection.runner import PassRunner
         from lost_landscapes.processing.pipeline import ProcessingPipeline
 
-        config_path = Path(f"/app/configs/passes/{pass_config}.toml")
-        if not config_path.exists():
-            config_path = settings.data_dir.parent / f"configs/passes/{pass_config}.toml"
+        config_path = pass_config_path(pass_config)
         runner = PassRunner.from_toml(config_path)
 
         ft_map = {
