@@ -59,6 +59,10 @@ interface Catalog {
       crs: string | null;
       resolution_m: [number, number] | null;
       elevation_units: string;
+      survey_id?: string | null;
+      vertical_datum?: string | null;
+      mosaic_eligible?: boolean;
+      mosaic_reason?: string | null;
     }[];
   };
 }
@@ -783,12 +787,16 @@ export default function LandscapePage() {
                 <strong>{source.id}</strong>
                 <p>{source.crs ?? "CRS unknown"} · Elevation: {source.elevation_units}</p>
                 {source.resolution_m && <p>Native spacing: {source.resolution_m.map((value) => Number(value.toFixed(3))).join(" × ")} m</p>}
+                <p>Declared survey: {source.survey_id ?? "Unknown"} · Vertical datum: {source.vertical_datum ?? "Unknown"}</p>
+                {source.mosaic_eligible !== undefined && <p>{source.mosaic_eligible
+                  ? "Neighbor joining available when projection, spacing and pixel alignment match."
+                  : `Neighbor joining unavailable: ${source.mosaic_reason}`}</p>}
                 {source.resolution_m && terrainLayer === "local-relief" && <p>Effective half-width: {source.resolution_m.map((value) => Number((Math.ceil(reliefRadius / value) * value).toFixed(3))).join(" × ")} m</p>}
                 {!source.eligible && <p>Inspection unavailable: {source.reason}</p>}
               </div>
             ))}
             {!currentSources.length && <p>No local source at the map center.</p>}
-            <p>Survey date and vertical datum are not verified by this viewer. Missing elevation units are assumed to be metres.</p>
+            <p>Survey metadata is declared by the data provider or importer, not independently verified by this viewer. Missing elevation units are assumed to be metres for individual sources; joining requires declared metre units.</p>
             <p>Coverage outlines show file extents; holes and incomplete edge neighborhoods may remain inside them. Exaggeration changes the 3D display, not calculated slope or local relief.</p>
             {catalog.visualizations && <p>Visualization method: {catalog.visualizations.algorithm_version}</p>}
           </details>

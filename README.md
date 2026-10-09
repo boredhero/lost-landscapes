@@ -36,13 +36,29 @@ The data panel reports source eligibility, native spacing, effective neighborhoo
 size and elevation units. Undeclared elevation units are explicitly assumed to
 be metres; acquisition dates and vertical references remain unverified.
 
-Complete neighborhoods are required. Missing cells and edges of separate source
-rasters remain blank, including within file-coverage outlines. Separate rasters
-are not yet stitched for these calculations. Reads are capped at four million
-native cells per source and eight million per tile request; oversized windows
-are skipped rather than silently coarsened. Regional fallback elevation never
+Complete neighborhoods are required. Neighboring rasters can supply measured
+cells across file boundaries when their declared survey ID, vertical datum,
+metre elevation units, CRS, spacing and pixel alignment agree. Missing metadata
+or incompatible sources leave unsupported edges blank. No elevations are
+interpolated across missing ground, and no vertical-datum conversion is attempted.
+Overlaps use deterministic source priority after applying band scale/offset.
+Each native working window is capped at four million cells, with at most 32
+contributing files. Per-request accounting bounds both native reads (including
+overlaps) and processing windows to eight million cells; a neighborhood that
+exceeds its budget is skipped rather than partially used or silently coarsened.
+Regional fallback elevation never
 enters these inspection calculations. Tiles are cached by source, algorithm and
 visualization settings.
+
+For a new import, declare verified common survey provenance with
+`--survey-id` and `--vertical-datum` on `scripts/import_study_area.py`. If the
+source omits elevation units, `--elevation-units m` explicitly declares metre
+elevations; it does not convert them. These options write `LL_SURVEY_ID`,
+`LL_VERTICAL_DATUM` and band-unit metadata to the imported copies. Conflicting
+existing declarations are rejected, and external masks/auxiliary metadata are
+preserved. Only group files from the same verified acquisition/processing survey.
+Existing imports with unknown provenance remain usable individually; they are
+not automatically declared compatible. The source panel explains eligibility.
 
 The [staged development plan](docs/development-plan.md) covers remaining terrain
 views, measurements, investigations, historical context, separate detector

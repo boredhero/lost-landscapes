@@ -66,10 +66,9 @@ for a useful explorer.
    spatial validation and bounded point-scoring baseline described in
    [the evaluation protocol](evaluation-protocol.md). Real-data cohort selection
    and review remain dependencies; synthetic results are not accuracy evidence.
-3. Next, implement C's compatible-source terrain neighborhoods before advanced
-   views that need larger neighborhoods. Inspect source CRS, grid alignment,
-   resolution and vertical metadata explicitly; unsupported combinations remain
-   unavailable. Genuine SVF/openness/VAT follow as separate commits.
+3. Delivery C1 now implements compatible-source terrain neighborhoods with
+   explicit provenance and grid checks. Genuine SVF/openness/VAT are next as
+   separate commits, with reference-output comparisons and bounded CPU work.
 4. Begin D's persistence contract before adding more investigation UI or detector
    output formats. Define one investigation schema with
    geometry, observations, proposed interpretations, evidence, provenance,
@@ -126,8 +125,9 @@ features below; the roadmap is our engineering proposal, not a published recipe.
 
 The first slice includes slope, signed local relief with 10/25/50 m square
 half-widths, eight directional-light presets, source provenance, and live explorer
-controls. Genuine SVF/openness/VAT, cross-source neighborhoods, and broader
-performance evaluation remain follow-ups; Stage 1 is not complete.
+controls. Delivery C1 adds compatible-source neighborhoods. Genuine
+SVF/openness/VAT and broader performance evaluation remain follow-ups;
+Stage 1 is not complete.
 
 Deliver existing multidirectional relief plus slope, directional hillshade, and
 signed simple local relief presets in the main explorer. Directional hillshade
@@ -149,10 +149,10 @@ existing relief as the default.
   supported limits with the implementation rather than silently approximating
   unsupported requests with coarser data.
 - Require a complete valid neighborhood for inspection derivatives. The first
-  implementation deliberately leaves transparent strips at missing-data and
-  source-file edges; it does not stitch neighboring source files. Padding a
-  requested display tile within one source prevents display-tile seams but does
-  not solve source boundaries. Explicitly distinguish regional fallback terrain
+  implementation left transparent strips at missing-data and source-file edges.
+  Delivery C1 joins compatible declared sources; incomplete neighborhoods and
+  incompatible or unknown source boundaries still remain transparent.
+  Explicitly distinguish regional fallback terrain
   used for context/3D shape from detailed inspection coverage.
 - Show available source attribution, resolution, units, and processing context.
   Missing acquisition dates, classification quality, or vertical-datum metadata
@@ -196,16 +196,18 @@ expensive than the existing display-grid shading at wider views.
 Strict complete-neighborhood support left only 28%, 42%, and 93% of the sampled
 local-relief tiles visible at zooms 14, 16 and 18, respectively. These figures
 depend on source holes/borders and the selected location; they are not measures
-of LiDAR coverage or detector accuracy. Source mosaicking and explicit quality
-visualization remain important follow-up work.
+of LiDAR coverage or detector accuracy. Delivery C1 provides source mosaicking
+when verified compatibility metadata is available; explicit quality visualization
+and wider real-data validation remain follow-up work.
 
 **Stage 1 follow-up deliverables:** add genuine sky-view factor, positive and
 negative openness, and a documented visualization-for-archaeological-topography
 (VAT) composite using established algorithms and blending settings [8]. These
 are visualization improvements in their own right, not work deferred until new
-detectors. Add mosaic-aware source-edge support for compatible neighboring DEMs,
-with explicit handling of incompatible resolution, projection, vertical reference,
-and nodata. Validate against the official RVT implementations or equivalent
+detectors. Delivery C1 supplies mosaic-aware source-edge support for compatible
+neighboring DEMs; incompatible resolution, projection, vertical reference and
+missing support remain separate. Validate advanced visualizations against the
+official RVT implementations or equivalent
 reference outputs on shared fixtures; test cross-source continuity without
 inventing elevations at unsupported boundaries. Retain strict transparency where
 the required neighborhood cannot be established. Release these follow-ups as
@@ -367,8 +369,8 @@ ESLint passed, and TypeScript plus the production frontend build passed. Native
 tool validation in GitHub CI is a separate gate. The prior browser checks and
 terrain performance measurements are recorded under Stage 1 above.
 
-Remaining Stage 1 work includes compatible-source neighborhoods and genuine
-SVF/openness/VAT. Delivery A does not complete the entire stage. The next delivery
+Remaining Stage 1 work at this delivery included compatible-source neighborhoods
+and genuine SVF/openness/VAT. Delivery A did not complete the entire stage. The next delivery
 is recorded below.
 
 ### Delivery B — evaluation contract and point baseline
@@ -385,13 +387,49 @@ The unit coverage exercises spatial leakage, physical-feature duplication,
 projection and evidence validation, changed-manifest rejection, false negatives,
 wrong-family results, duplicates, exclusions and CLI behavior. Candidate real-data
 cohorts are documented as selection targets, not acquired or reviewed benchmarks.
-No detector accuracy claim or model training is included. Next: Delivery C,
+No detector accuracy claim or model training is included. Delivery C follows,
 starting with compatible-source terrain neighborhoods.
 
 Local validation for this delivery: 30 new benchmark tests passed; the full unit
 suite passed with 227 tests and 72 native-tool/optional-dependency skips. Ruff
 0.15.7 passed. The documented validate and score commands ran successfully against
 the committed synthetic examples. Native-tool tests run separately in GitHub CI.
+
+### Delivery C1 — compatible-source terrain neighborhoods
+
+Implemented: bounded neighborhood reads across aligned native grids with the
+same declared survey ID, vertical datum and metre elevation units. Projection,
+spacing and pixel alignment must also agree. Scale/offset is applied before
+joining; deterministic overlap preference is shared across all source windows.
+Neighbors outside the visible tile are considered when the calculation needs
+their measured cells. Missing or incompatible support stays transparent. Cache
+identity advances to `native-v3-mosaic` and source metadata changes invalidate it.
+
+The importer accepts verified survey/datum/unit declarations and preserves
+external masks and auxiliary metadata. The source panel explains whether a file
+can participate in joining. Existing unknown metadata is not silently upgraded.
+All ten DEMs in the local demo lack complete joining declarations, so this
+delivery intentionally does not claim improved coverage for that dataset.
+
+Validation: 24 new tests compare four-tile edge/corner joins to a continuous
+reference for slope, hillshade and all local-relief radii. They cover missing
+ground, outside-view halos, incompatible datums/grids/units, scaled elevation,
+overlap order, processing limits, metadata cache invalidation and import masks.
+The full local suite passed with 251 tests and 72 native-tool/optional-dependency
+skips; Ruff, ESLint, TypeScript and the production build passed.
+Browser checks passed for desktop/mobile terrain views, the new provenance
+message, 3D comparison and empty coverage, with no JavaScript errors, failed
+terrain API requests or horizontal overflow.
+
+A repeat of the Stage 1 ten-DEM single-process sample (still unjoined because
+provenance is incomplete) measured 135–330 ms cold relief renders, 102–614 ms
+slope, 152–472 ms local relief and 96–536 ms directional hillshade, with about
+279 MiB peak RSS. These limited measurements are not concurrent production
+benchmarks or proof of speedup. Joined synthetic correctness tests exercise the
+new path separately. The window/source/read caps remain enforced.
+
+Next: genuine sky-view factor and positive/negative openness, followed by a
+documented VAT composite. Full Stage 1 completion remains pending.
 
 Deliver stages as small reviewable changes; a stage can span multiple PRs.
 Documentation status and validation results must reflect actual implementation.

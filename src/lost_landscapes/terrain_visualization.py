@@ -1,8 +1,8 @@
 """Local DEM visualizations, computed before display resampling on native grids.
 
 Only north-up projected metre grids are supported. Complete neighborhood support
-is required: source borders and gaps remain transparent rather than inventing
-terrain. Different source tiles are not stitched for neighborhood calculations.
+is required. Compatible, explicitly identified survey tiles can supply adjacent
+neighborhoods; unsupported borders and missing ground remain transparent.
 """
 
 import io
@@ -14,21 +14,24 @@ from PIL import Image
 from rasterio.transform import from_bounds
 from rasterio.warp import Resampling, reproject, transform_bounds
 from rasterio.windows import Window
+from rasterio.windows import bounds as window_bounds
 from rasterio.windows import from_bounds as window_from_bounds
 from scipy.ndimage import minimum_filter, uniform_filter
 
-VERSION = "native-v2"
+VERSION = "native-v3-mosaic"
 LAYERS = ("slope", "local-relief", "hillshade")
 RADII = (10, 25, 50)
 AZIMUTHS = tuple(range(0, 360, 45))
 MIN_ZOOM = 14
 MAX_SAMPLES = 4_000_000
 MAX_TOTAL_SAMPLES = 8_000_000
+MAX_NEIGHBOR_SOURCES = 32
+METRE_UNITS = ("m", "metre", "meter", "metres", "meters")
 
 
 def source_info(src):
     """Describe eligibility without silently interpreting degrees or feet as metres."""
-    units = (src.units[0] or "").lower()
+    units = (src.units[0] or "").strip().lower()
     reason = None
     if not src.crs or not src.crs.is_projected or src.crs.to_epsg() == 3857:
         reason = "A local projected metre CRS is required"
@@ -36,7 +39,7 @@ def source_info(src):
         reason = "Horizontal units must be metres"
     elif src.transform.b or src.transform.d or src.transform.a <= 0 or src.transform.e >= 0:
         reason = "A north-up grid is required"
-    elif units not in ("", "m", "metre", "meter", "metres", "meters"):
+    elif units not in ("", *METRE_UNITS):
         reason = "Elevation units must be metres"
     elif not all(math.isfinite(r) and r > 0 for r in src.res):
         reason = "Finite positive grid spacing is required"
@@ -44,6 +47,14 @@ def source_info(src):
         reason = "Finite elevation scale and offset are required"
     elif max(src.res) > 5:
         reason = "Source spacing exceeds 5 metres"
+    tags = src.tags()
+    survey = tags.get("LL_SURVEY_ID", "").strip()
+    datum = tags.get("LL_VERTICAL_DATUM", "").strip()
+    mosaic_reason = reason
+    if not mosaic_reason and (not survey or not datum or units not in METRE_UNITS):
+        mosaic_reason = (
+            "Joining requires a declared survey ID, vertical datum and metre elevation units"
+        )
     return {
         "eligible": reason is None,
         "reason": reason,
@@ -52,6 +63,10 @@ def source_info(src):
         "elevation_units": units if units else "assumed metres (not declared)",
         "elevation_scale": src.scales[0],
         "elevation_offset": src.offsets[0],
+        "survey_id": survey or None,
+        "vertical_datum": datum or None,
+        "mosaic_eligible": mosaic_reason is None,
+        "mosaic_reason": mosaic_reason,
         "effective_half_widths_m": {
             str(r): [math.ceil(r / src.res[0]) * src.res[0], math.ceil(r / src.res[1]) * src.res[1]]
             for r in RADII
@@ -83,8 +98,80 @@ def metadata(records):
         "local_relief_range_m": [-2, 2],
         "slope_range_degrees": [0, 60],
         "sources": sources,
-        "limitations": "Local DEMs only. Complete native neighborhoods are required; source edges and missing data stay transparent. Views below zoom 14 are unavailable. Oversized source windows are skipped.",
+        "limitations": "Local DEMs only. Joining requires the same declared survey and vertical datum, metre elevations, CRS, spacing and pixel alignment. Missing neighborhoods stay transparent. Zoom 14 or closer is required. Oversized windows or mosaics are skipped.",
+        "mosaic_limits": {
+            "window_samples": MAX_SAMPLES,
+            "request_samples": MAX_TOTAL_SAMPLES,
+            "sources_per_window": MAX_NEIGHBOR_SOURCES,
+        },
     }
+
+
+def compatible_sources(anchor, other):
+    """Accept exact grid joins only; never reproject or harmonize vertical datums."""
+    a, b = source_info(anchor), source_info(other)
+    if not a["mosaic_eligible"] or not b["mosaic_eligible"]:
+        return False
+    if (a["survey_id"], a["vertical_datum"], anchor.crs) != (
+        b["survey_id"],
+        b["vertical_datum"],
+        other.crs,
+    ):
+        return False
+    if not all(
+        math.isclose(x, y, rel_tol=1e-10, abs_tol=1e-12)
+        for x, y in zip(anchor.res, other.res, strict=True)
+    ):
+        return False
+    col = (other.transform.c - anchor.transform.c) / anchor.transform.a
+    row = (other.transform.f - anchor.transform.f) / anchor.transform.e
+    return all(abs(value - round(value)) <= 1e-6 for value in (col, row))
+
+
+def intersects(a, b):
+    return a[2] > b[0] and a[0] < b[2] and a[3] > b[1] and a[1] < b[3]
+
+
+def read_neighborhood(anchor, records, window, read_budget):
+    """Copy measured cells onto an aligned grid; return None if work exceeds limits.
+
+    Records are ordered globally, so overlap preference is identical on both
+    sides of a file boundary. Masked cells never become invented measurements.
+    """
+    extent = transform_bounds(
+        anchor.crs, "EPSG:3857", *window_bounds(window, anchor.transform), densify_pts=21
+    )
+    elevation = np.full((int(window.height), int(window.width)), np.nan, dtype=np.float64)
+    consumed, contributors = 0, 0
+    for record in records:
+        if not intersects(record.bounds, extent):
+            continue
+        with rasterio.open(record.path) as other:
+            if str(record.path) != anchor.name and not compatible_sources(anchor, other):
+                continue
+            col = round((other.transform.c - anchor.transform.c) / anchor.transform.a)
+            row = round((other.transform.f - anchor.transform.f) / anchor.transform.e)
+            left, top = max(int(window.col_off), col), max(int(window.row_off), row)
+            right = min(int(window.col_off + window.width), col + other.width)
+            bottom = min(int(window.row_off + window.height), row + other.height)
+            if right <= left or bottom <= top:
+                continue
+            count = (right - left) * (bottom - top)
+            contributors += 1
+            if contributors > MAX_NEIGHBOR_SOURCES or consumed + count > read_budget:
+                return None, consumed
+            consumed += count
+            values = other.read(
+                1, window=Window(left - col, top - row, right - left, bottom - top), masked=True
+            )
+            values = values.astype(np.float64).filled(np.nan)
+            values = values * other.scales[0] + other.offsets[0]
+            target = elevation[
+                top - int(window.row_off) : bottom - int(window.row_off),
+                left - int(window.col_off) : right - int(window.col_off),
+            ]
+            np.copyto(target, values, where=~np.isfinite(target) & np.isfinite(values))
+    return elevation, consumed
 
 
 def derivatives(elevation, spacing_x, spacing_y, layer, radius_m=25, azimuth=315):
@@ -156,13 +243,9 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
     result = np.full((size, size), np.nan, dtype=np.float32)
     target = from_bounds(*bounds, size, size)
     consumed = 0
-    for record in sorted(records, key=lambda r: (r.resolution_m, str(r.path))):
-        if (
-            record.bounds[2] <= bounds[0]
-            or record.bounds[0] >= bounds[2]
-            or record.bounds[3] <= bounds[1]
-            or record.bounds[1] >= bounds[3]
-        ):
+    ordered = sorted(records, key=lambda r: (r.resolution_m, str(r.path)))
+    for record in ordered:
+        if not intersects(record.bounds, bounds):
             continue
         with rasterio.open(record.path) as src:
             if not source_info(src)["eligible"]:
@@ -174,10 +257,11 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
             ry = math.ceil(radius_m / src.res[1]) if layer == "local-relief" else 1
             hx = rx + max(2, math.ceil(raw.width / size) + 1)
             hy = ry + max(2, math.ceil(raw.height / size) + 1)
-            left = max(0, math.floor(raw.col_off) - hx)
-            top = max(0, math.floor(raw.row_off) - hy)
-            right = min(src.width, math.ceil(raw.col_off + raw.width) + hx)
-            bottom = min(src.height, math.ceil(raw.row_off + raw.height) + hy)
+            # Extend beyond this source to let compatible neighbors supply the halo.
+            left = max(-hx, math.floor(raw.col_off) - hx)
+            top = max(-hy, math.floor(raw.row_off) - hy)
+            right = min(src.width + hx, math.ceil(raw.col_off + raw.width) + hx)
+            bottom = min(src.height + hy, math.ceil(raw.row_off + raw.height) + hy)
             width, height = right - left, bottom - top
             samples = width * height
             if (
@@ -187,11 +271,11 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
                 or consumed + samples > MAX_TOTAL_SAMPLES
             ):
                 continue
-            consumed += samples
             window = Window(left, top, width, height)
-            elevation = src.read(1, window=window, masked=True).astype(np.float64).filled(np.nan)
-            elevation *= src.scales[0]
-            elevation += src.offsets[0]
+            elevation, reads = read_neighborhood(src, ordered, window, MAX_TOTAL_SAMPLES - consumed)
+            consumed += max(samples, reads)
+            if elevation is None:
+                continue
             scalar = derivatives(elevation, src.res[0], src.res[1], layer, radius_m, azimuth)
             patch = np.full_like(result, np.nan)
             reproject(
