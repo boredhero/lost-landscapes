@@ -5,7 +5,8 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2.shape import to_shape
-from sqlalchemy import func, select
+from shapely.geometry import mapping
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from lost_landscapes.api.deps import get_db
@@ -34,6 +35,7 @@ def _detection_to_feature(d: Detection) -> DetectionFeature:
         id=str(d.id),
         geometry=geom,
         properties=DetectionProperties(
+            outline=mapping(to_shape(d.outline)) if d.outline is not None else None,
             feature_type=d.feature_type.value if d.feature_type else None,
             confidence=d.confidence or 0.0,
             depth_m=d.depth_m,
@@ -73,12 +75,13 @@ async def list_detections(
         .where(Detection.confidence >= min_confidence)
     )
     if feature_type:
-        ft_enums = [FeatureType(ft) for ft in feature_type if ft in FeatureType.__members__]
+        ft_enums = [FeatureType(ft) for ft in feature_type if ft in {kind.value for kind in FeatureType}]
         if ft_enums:
             stmt = stmt.where(Detection.feature_type.in_(ft_enums))
             log.debug("list_detections_feature_type_filter", ft_enums=[ft.value for ft in ft_enums])
     if source_pass:
-        stmt = stmt.where(Detection.source_passes.contains([source_pass]))
+        stmt = stmt.where(or_(Detection.source_passes.contains([source_pass]),
+                              Detection.source_passes.contains({"source_passes": [source_pass]})))
     if validated is not None:
         stmt = stmt.where(Detection.validated == validated)
     # Count total before pagination

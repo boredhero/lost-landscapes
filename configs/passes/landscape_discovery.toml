@@ -1,0 +1,4 @@
+# Experimental morphology; no accuracy or archaeological-origin claim.
+[pipeline]
+passes = ["raised_features", "linear_features", "enclosures", "repeated_patterns", "geological_forms"]
+min_confidence = 0.3

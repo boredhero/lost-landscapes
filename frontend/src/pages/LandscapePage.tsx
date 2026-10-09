@@ -126,6 +126,7 @@ export default function LandscapePage() {
   const contextSource = contextQuery.data?.sources.find(source => source.id === contextId);
   const [coverage, setCoverage] = useState(false);
   const [query, setQuery] = useState("");
+  const [scanPreset, setScanPreset] = useState("landscape_discovery");
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState("");
   const [terrainError, setTerrainError] = useState(false);
@@ -380,7 +381,7 @@ export default function LandscapePage() {
     try {
       const result = await createJob({
         job_type: "full_pipeline",
-        pass_config: "sinkhole_survey",
+        pass_config: scanPreset,
         bbox: {
           type: "Polygon",
           coordinates: [
@@ -647,6 +648,12 @@ export default function LandscapePage() {
             A shape identified by terrain analysis. This is not a verified ruin
             or archaeological site.
           </p>
+          {selected.source_passes?.experimental === true && <div className="muted">
+            <strong>Experimental morphology · unverified</strong>
+            <p>{String(selected.source_passes.explanation ?? '')}</p>
+            <p>Score is a heuristic, not a probability. Natural terrain and modern land use can produce the same shape.</p>
+            <dl>{Object.entries(selected.morphometrics ?? {}).filter(([, value]) => typeof value === 'number').map(([name, value]) => <div key={name}><dt>{name.replaceAll('_', ' ')}</dt><dd>{Number(value).toFixed(2)}</dd></div>)}</dl>
+          </div>}
           <dl>
             <div>
               <dt>Detection score</dt>
@@ -688,7 +695,12 @@ export default function LandscapePage() {
       {panel === 'shortlist' && <aside className="landscape-panel notebook-panel" aria-label="Automatic shortlist">
         <div className="panel-eyebrow"><span>AUTOMATIC SUGGESTIONS</span><button aria-label="Close shortlist" onClick={() => setPanel(null)}>×</button></div>
         <h2>Review the shapes.</h2>
-        <p className="muted">Highest scoring candidates in the current map view (up to 100, score ≥ 0.4). Current scanning is tuned for depressions; these are not verified sites.</p>
+        <p className="muted">Highest scoring candidates in the current map view (up to 100, score ≥ 0.4). Discovery shapes are experimental and have no reviewed regional accuracy estimate. Scores rank shapes, not the probability of a ruin or geological origin.</p>
+        <label>Scan preset<select aria-label="Scan preset" value={scanPreset} disabled={busy} onChange={e => setScanPreset(e.target.value)}>
+          <option value="landscape_discovery">Broad terrain discovery (experimental)</option>
+          <option value="sinkhole_survey">Existing depression survey</option>
+        </select></label>
+        <p className="muted">Broad discovery searches for mounds, platforms, banks/ditches, closed boundaries, repeated arrangements, ridges, hollows and scarps. Natural and modern lookalikes remain in the review list.</p>
         <p>Save into: {group.name}</p>
         {!catalog.analysis_enabled && <p>Analysis is not enabled on this deployment. Saved findings remain available in investigations.</p>}
         {detectionsQuery.isPending && catalog.analysis_enabled && <p>Loading suggestions…</p>}

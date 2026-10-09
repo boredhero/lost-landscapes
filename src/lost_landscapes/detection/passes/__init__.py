@@ -28,3 +28,11 @@ __all__ = [
     "UNetSegmentationPass",
     "YOLODetectorPass",
 ]
+
+from lost_landscapes.detection.passes.discovery import (  # noqa: F401
+    EnclosuresPass,
+    GeologicalFormsPass,
+    LinearFeaturesPass,
+    RaisedFeaturesPass,
+    RepeatedPatternsPass,
+)

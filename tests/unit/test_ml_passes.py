@@ -62,12 +62,12 @@ def _get_native_derivatives(dem_path: Path, tmpdir: Path) -> dict[str, np.ndarra
 # --- Registry ---
 
 class TestMLPassesRegistered:
-    def test_all_11_passes_registered(self):
+    def test_all_passes_registered(self):
         passes = PassRegistry.list_passes()
         assert "random_forest" in passes
         assert "unet_segmentation" in passes
         assert "yolo_detector" in passes
-        assert len(passes) == 11
+        assert len(passes) == 16
 
 
 # --- Feature Extraction (requires GDAL+WBT for derivatives) ---

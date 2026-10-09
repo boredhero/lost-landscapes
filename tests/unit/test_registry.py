@@ -6,7 +6,7 @@ from lost_landscapes.detection.registry import PassRegistry
 
 
 class TestPassRegistry:
-    def test_all_11_passes_registered(self):
+    def test_all_passes_registered(self):
         passes = PassRegistry.list_passes()
         expected = [
             "fill_difference", "local_relief_model", "curvature",
@@ -16,7 +16,7 @@ class TestPassRegistry:
         ]
         for name in expected:
             assert name in passes, f"Pass {name!r} not registered"
-        assert len(passes) == 11
+        assert len(passes) == 16
 
     def test_get_pass_chain(self):
         chain = PassRegistry.get_pass_chain(["fill_difference", "tpi"])

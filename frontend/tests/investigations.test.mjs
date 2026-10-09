@@ -51,3 +51,15 @@ test('context source snapshots preserve geographic and date semantics', async ()
   assert.deepEqual(snapshot.bounds,source.bounds);
   assert.equal(contextSnapshot(undefined,.5),null);
 });
+
+test('automatic polygon footprints and experimental evidence survive saving and export', () => {
+  const outline = {type:'Polygon', coordinates:[[[-80,40],[-79.999,40],[-79.999,40.001],[-80,40]]]};
+  const detection = {id:'new-mound', lat:40, lon:-80, feature_type:'mound', confidence:.6,
+    outline, source_passes:{experimental:true, algorithm:'raised_features', algorithm_version:'0.1.0'}};
+  const finding = fromDetection(detection);
+  assert.deepEqual(finding.geometry, outline);
+  assert.equal(finding.detection.source_passes.experimental, true);
+  const group = newInvestigation(); group.findings.push(finding);
+  const restored = importNotebook(JSON.stringify(exportNotebook({version:1, investigations:[group]})));
+  assert.deepEqual(restored.investigations[0].findings[0].geometry, outline);
+});
