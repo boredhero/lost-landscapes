@@ -24,6 +24,7 @@ import type { ViewState } from "react-map-gl/maplibre";
 import ContextPanel from "../components/Landscape/ContextPanel";
 import { contextSnapshot } from "../components/Landscape/contextLayers";
 import type { ContextSource } from "../components/Landscape/contextLayers";
+import LoadingNotice from "../components/Landscape/LoadingNotice";
 import LandscapeMap from "../components/Landscape/LandscapeMap";
 import { isHorizonLayer, lightDirections, terrainLayers, terrainLegend, terrainMinZoom, usesTerrainRadius } from "../components/Landscape/terrainLayers";
 import type { ReliefRadius, TerrainLayer } from "../components/Landscape/terrainLayers";
@@ -473,6 +474,11 @@ export default function LandscapePage() {
         onTerrainError={onTerrainError}
         onLoading={setLoadingTiles}
       />
+      <div className="request-loading-notices">
+        {catalogQuery.isFetching && <LoadingNotice label="Loading study areas…" />}
+        {searching && <LoadingNotice label="Finding location…" />}
+        {contextQuery.isFetching && <LoadingNotice label="Loading evidence sources…" />}
+      </div>
       <header className="landscape-header">
         <a
           className="landscape-brand"

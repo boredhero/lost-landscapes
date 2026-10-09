@@ -1,3 +1,4 @@
+import LoadingNotice from "../components/Landscape/LoadingNotice";
 import { useEffect, useState } from 'react';
 import type { Finding, Geometry, Investigation, Measurement, Notebook, Review } from './model';
 import { download, exportNotebook, importNotebook, newInvestigation } from './model';
@@ -80,6 +81,7 @@ export default function NotebookPanel(props: Props) {
       <label>Notes<textarea aria-label="Notes" value={selected.notes} maxLength={20000} onChange={e => onUpdate({ ...selected, notes: e.target.value })} /></label>
       <label>Evidence references<textarea aria-label="Evidence references" placeholder="Map references, URLs, field observations…" value={selected.evidence} maxLength={20000} onChange={e => onUpdate({ ...selected, evidence: e.target.value })} /></label>
       {selected.detection && <p className="muted">Automatic suggestion · score {selected.detection.confidence} · {selected.detection.feature_type}. Review status is your assessment, not a verified site classification.</p>}
+      {measuring && <LoadingNotice label="Sampling elevations and calculating measurements…" />}
       <div className="notebook-actions"><button onClick={() => onLocate(selected)}>Show on map</button><button disabled={measuring} onClick={() => void measure()}>{measuring ? 'Measuring…' : 'Measure / elevation profile'}</button><button onClick={() => { if (window.confirm('Delete this finding?')) onBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, findings: g.findings.filter(f => f.id !== selected.id) } : g) }); }}>Delete finding</button></div>
       {requestError && <p role="alert">{requestError}</p>}
       {selected.measurement && <><p>{selected.geometry.type !== 'Point' && `${selected.measurement.length_m.toFixed(1)} m ${selected.geometry.type === 'Polygon' ? 'perimeter' : 'length'}`}{selected.measurement.area_m2 !== null && ` · ${selected.measurement.area_m2.toFixed(1)} m²`}</p>{selected.geometry.type !== 'Polygon' && <Profile data={selected.measurement} />}</>}

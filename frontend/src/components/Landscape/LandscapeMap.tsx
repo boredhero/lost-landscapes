@@ -11,6 +11,7 @@ import type {
   ViewState,
 } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
+import LoadingNotice from "./LoadingNotice";
 import type { Detection } from "../../types";
 import type { ContextSource } from "./contextLayers";
 import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
@@ -174,6 +175,8 @@ export default function LandscapeMap(props: Props) {
     onLoading,
   } = props;
   const map = useRef<MapRef>(null);
+  const comparisonMap = useRef<MapRef>(null);
+  const [pendingSources, setPendingSources] = useState<string[]>(["Preparing map…"]);
   const [camera, setCamera] = useState(initial);
   const baseStyle = useMemo(
     () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt),
@@ -184,6 +187,30 @@ export default function LandscapeMap(props: Props) {
     () => (is3D ? { source: "terrain", exaggeration } : undefined),
     [is3D, exaggeration],
   );
+  useEffect(() => {
+    // Poll visible sources, including the second comparison map. This also handles
+    // style replacements, cancelled tiles and cached tiles without counting events.
+    const update = () => {
+      const pending: string[] = [];
+      const check = (current: MapRef | null, source: string, label: string) => {
+        if (!current || !current.getStyle()) {
+          if (!pending.includes('Preparing map…')) pending.push('Preparing map…');
+        } else if (current.getSource(source) && !current.isSourceLoaded(source)) pending.push(label);
+      };
+      if (is3D || (mode !== 'aerial' && terrainLayer === 'relief')) check(map.current, 'terrain', 'Loading 3D terrain…');
+      check(map.current, mode === 'aerial' ? 'aerial' : 'relief', mode === 'aerial' ? 'Loading aerial imagery…' : 'Loading terrain view…');
+      if (props.contextSource) check(map.current, 'context-overlay', `Loading ${props.contextSource.name}…`);
+      if (mode === 'compare') {
+        check(comparisonMap.current, 'aerial', 'Loading comparison imagery…');
+        if (is3D) check(comparisonMap.current, 'terrain', 'Loading comparison terrain…');
+      }
+      setPendingSources(previous => previous.join('|') === pending.join('|') ? previous : pending);
+      onLoading(pending.length > 0);
+    };
+    const timer = window.setInterval(update, 250);
+    return () => window.clearInterval(timer);
+  }, [mode, is3D, terrainLayer, props.contextSource, onLoading]);
+
   const geojson = useMemo<GeoJSON.FeatureCollection>(
     () => ({
       type: "FeatureCollection",
@@ -268,8 +295,6 @@ export default function LandscapeMap(props: Props) {
         maxZoom={19}
         attributionControl={false}
         onLoad={reportView}
-        onData={() => onLoading(!(map.current?.areTilesLoaded() ?? false))}
-        onIdle={() => onLoading(false)}
         onMove={(event) => setCamera(event.viewState)}
         onMoveEnd={reportView}
         onClick={click}
@@ -325,6 +350,9 @@ export default function LandscapeMap(props: Props) {
         <ScaleControl position="bottom-left" unit="metric" />
         <AttributionControl position="bottom-right" compact />
       </Map>
+      <div className="map-loading-notices">
+        {pendingSources.map(label => <LoadingNotice key={label} label={label} />)}
+      </div>
       {mode === "compare" && (
         <>
           <div
@@ -333,7 +361,9 @@ export default function LandscapeMap(props: Props) {
             aria-hidden="true"
           >
             <Map
+              ref={comparisonMap}
               {...camera}
+              onError={onTerrainError}
               mapStyle={aerialStyle}
               terrain={terrain}
               interactive={false}

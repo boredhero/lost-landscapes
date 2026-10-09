@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import time
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -9,6 +10,7 @@ from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
 
 from lost_landscapes.context_sources import intersects, request_for_tile, source_catalog
+from lost_landscapes.utils.log_manager import log
 
 router = APIRouter(prefix="/landscape/context", tags=["landscape-context"])
 _slots = asyncio.Semaphore(4)
@@ -28,9 +30,11 @@ def catalog():
 
 
 async def fetch_image(url, params):
+    queued = time.perf_counter()
     # Includes queue wait, connection, streamed bytes and validation in one deadline.
     async with asyncio.timeout(REQUEST_DEADLINE):
         async with _slots:
+            log.info("evidence_queue", queue_ms=(time.perf_counter() - queued) * 1000)
             async with httpx.AsyncClient(timeout=4, follow_redirects=False) as client:
                 async with client.stream("GET", url, params=params) as response:
                     response.raise_for_status()
@@ -59,10 +63,14 @@ async def tile(source_id: str, z: int, x: int, y: int):
     if not source.min_zoom <= z <= source.max_zoom or not intersects(source, z, x, y):
         return Response(EMPTY_TILE, media_type="image/png", headers={"Cache-Control": "private, max-age=300"})
     url, params = request_for_tile(source, z, x, y)
+    started = time.perf_counter()
+    log.info("evidence_fetch", source_id=source_id, provider=source.adapter.kind)
     try:
         data = await fetch_image(url, params)
     except (TimeoutError, httpx.HTTPError, OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
         raise HTTPException(503, "Evidence provider unavailable; retry or remove this overlay") from exc
+    finally:
+        log.info("evidence_fetch_complete", source_id=source_id, elapsed_ms=(time.perf_counter() - started) * 1000)
     # Ordinary short-lived viewing cache only; no offline/bulk provider imagery export.
     return Response(data, media_type="image/png" if data.startswith(b"\x89PNG") else "image/jpeg",
                     headers={"Cache-Control": "private, max-age=300"})

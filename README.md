@@ -245,3 +245,24 @@ The **Historical evidence** panel adds optional dated maps/aerials, geology and
 mining context with opacity, coverage and attribution. Its source registry and
 ArcGIS/XYZ/WMS adapters are designed for US and European expansion; current
 catalog entries are regional pilot coverage. See [source architecture and research](docs/context-sources.md).
+
+### Loading and request diagnostics
+
+The map shows separate loading notices for terrain, aerial/comparison imagery and
+historical overlays, with elapsed time and a slow-loading hint after eight seconds.
+Search, catalogs and elevation measurements also show pending work.
+
+Backend console and daily logs include `request_in` and `request_out`, correlated
+by `rid` (also returned as `X-Request-ID`). `headers_ms` measures time until response
+headers; `elapsed_ms` includes sending the final response body to the ASGI server,
+not client network delivery. `response_bytes`, status, route and `slow=true` (at
+least one second) help identify expensive endpoints. `Server-Timing` exposes header
+latency in browser developer tools. Health probes are excluded; query strings and
+request bodies are not logged.
+
+`terrain_tile` reports disk-cache hit/miss and visualization parameters.
+`request_work` separates executor `queue_ms` from `work_ms`, retaining the same rid
+inside worker threads. `evidence_queue` and `evidence_fetch_complete` show external
+imagery queue and total fetch time by source. Requests cancelled or failing before
+completion are logged explicitly. Browser-cache hits and imagery fetched directly
+from Esri do not reach the backend and must be inspected in browser network tools.

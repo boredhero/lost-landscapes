@@ -1,52 +1,12 @@
 """FastAPI application factory."""
 
-import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from lost_landscapes.utils.log_manager import (
-    generate_request_id,
-    log,
-    request_id_var,
-    set_request_id,
-)
-
-# ── Request Logging Middleware ──────────────────────────────────────────
-# Every request gets an 8-char hex correlation ID (rid). Two log lines per
-# request: "request_in" when it arrives, "request_out" when it completes.
-# The rid propagates via contextvars so every log.info() call inside the
-# request handler automatically includes it. Grep for the rid to see the
-# full lifecycle of any request.
-#
-# Skips /api/health to avoid log spam from Docker healthchecks.
-
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
-        path = request.url.path
-        if path == "/api/health":
-            return await call_next(request)
-        rid = generate_request_id()
-        token = set_request_id(rid)
-        method = request.method
-        query = str(request.url.query) if request.url.query else ""
-        log.info("request_in", method=method, path=path, query=query)
-        t0 = time.perf_counter()
-        try:
-            response = await call_next(request)
-            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
-            log.info("request_out", method=method, path=path, status=response.status_code, elapsed_ms=elapsed_ms)
-            response.headers["X-Request-ID"] = rid
-            return response
-        except Exception as exc:
-            elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
-            log.error("request_failed", method=method, path=path, error=str(exc)[:200], elapsed_ms=elapsed_ms)
-            raise
-        finally:
-            request_id_var.reset(token)
-
+from lost_landscapes.utils.log_manager import log
+from lost_landscapes.utils.request_logging import RequestLoggingMiddleware
 
 _vrt_timer = None
 
@@ -89,9 +49,6 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json",
     )
 
-    # Request logging middleware (must be added BEFORE CORS so it wraps everything)
-    app.add_middleware(RequestLoggingMiddleware)
-
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -103,7 +60,10 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Request-ID", "Server-Timing"],
     )
+
+    app.add_middleware(RequestLoggingMiddleware)
 
     # Register all routes
     from lost_landscapes.api.routes import (
