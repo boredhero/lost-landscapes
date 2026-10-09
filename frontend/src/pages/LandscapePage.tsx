@@ -21,6 +21,9 @@ import {
   ZoomOut,
 } from "lucide-react";
 import type { ViewState } from "react-map-gl/maplibre";
+import ContextPanel from "../components/Landscape/ContextPanel";
+import { contextSnapshot } from "../components/Landscape/contextLayers";
+import type { ContextSource } from "../components/Landscape/contextLayers";
 import LandscapeMap from "../components/Landscape/LandscapeMap";
 import { isHorizonLayer, lightDirections, terrainLayers, terrainLegend, terrainMinZoom, usesTerrainRadius } from "../components/Landscape/terrainLayers";
 import type { ReliefRadius, TerrainLayer } from "../components/Landscape/terrainLayers";
@@ -103,7 +106,23 @@ export default function LandscapePage() {
   const [is3D, set3D] = useState(true);
   const [exaggeration, setExaggeration] = useState(1.25);
   const [split, setSplit] = useState(50);
-  const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | "shortlist" | null>("explore");
+  const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | "shortlist" | "context" | null>("explore");
+  const [contextId, setContextId] = useState('');
+  const [contextOpacity, setContextOpacity] = useState(0.55);
+  const [contextError, setContextError] = useState(false);
+  const [contextAttempt, setContextAttempt] = useState(0);
+  const contextQuery = useQuery<{ sources: ContextSource[] }>({
+    queryKey: ['landscape-context'],
+    enabled: panel === 'context' || !!contextId,
+    queryFn: async () => {
+      const response = await fetch('/api/landscape/context', { signal: AbortSignal.timeout(12_000) });
+      if (!response.ok) throw Error('Evidence sources unavailable');
+      return response.json();
+    },
+    staleTime: 300_000,
+    retry: false,
+  });
+  const contextSource = contextQuery.data?.sources.find(source => source.id === contextId);
   const [coverage, setCoverage] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -157,7 +176,7 @@ export default function LandscapePage() {
     setMode('lidar'); set3D(false); setTarget({ ...view, pitch: 0, id: Date.now() });
   }
   function addGeometry(geometry: Geometry) {
-    const item = newFinding(geometry, { revision: catalog.revision, terrainLayer, radius_m: reliefRadius, azimuth: lightAzimuth });
+    const item = newFinding(geometry, { revision: catalog.revision, terrainLayer, radius_m: reliefRadius, azimuth: lightAzimuth, evidence_overlay: contextSnapshot(contextSource, contextOpacity) });
     updateBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, findings: [...g.findings, item] } : g) });
     setFindingId(item.id); endDrawing(); setPanel('notebook');
   }
@@ -406,6 +425,7 @@ export default function LandscapePage() {
   function save(detection: Detection) {
     const existing = group.findings.find(f => f.detection?.id === detection.id);
     const item = existing ?? fromDetection(detection);
+    if (!existing) item.context = { ...item.context, evidence_overlay: contextSnapshot(contextSource, contextOpacity) };
     if (!existing && group.findings.length >= 1000) { setNotice("This investigation has 1,000 findings. Create another investigation first."); return; }
     if (!existing) updateBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, findings: [...g.findings, item] } : g) });
     setFindingId(item.id); setSelected(null); setPanel('notebook');
@@ -424,6 +444,10 @@ export default function LandscapePage() {
   return (
     <main className="landscape-app">
       <LandscapeMap
+        contextSource={contextSource}
+        contextOpacity={contextOpacity}
+        contextAttempt={contextAttempt}
+        onContextError={() => setContextError(true)}
         findings={investigationFeatures}
         drawing={!!drawing}
         onDrawPoint={drawPoint}
@@ -671,7 +695,18 @@ export default function LandscapePage() {
         onDraw={startDrawing} onFinish={finishDrawing} onUndo={() => setVertices(vertices.slice(0, -1))} onClose={() => setPanel(null)}
         onLocate={(f) => { const p = f.geometry.type === 'Point' ? f.geometry.coordinates : f.geometry.type === 'Polygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; move({ longitude: p[0], latitude: p[1], zoom: 17 }); }} />}
       {drawing && panel !== 'notebook' && <div className="drawing-bar"><span>Click map to place vertices ({vertices.length})</span><button onClick={() => setVertices(vertices.slice(0, -1))}>Undo</button><button onClick={finishDrawing}>Finish drawing</button><button onClick={endDrawing}>Cancel drawing</button></div>}
+      {panel === 'context' && <ContextPanel sources={contextQuery.data?.sources ?? []} selected={contextSource}
+        loading={contextQuery.isFetching} catalogError={contextQuery.isError} tileError={contextError}
+        opacity={contextOpacity} view={view} onOpacity={setContextOpacity}
+        onSelect={id => { setContextId(id); setContextError(false); }}
+        onRetry={() => { setContextError(false); setContextAttempt(value => value + 1); }}
+        onShowCoverage={source => {
+          const [w, s, e, n] = source.bounds;
+          move({ longitude: (w + e) / 2, latitude: (s + n) / 2, zoom: Math.min(16, Math.max(source.min_zoom, Math.log2(360 / Math.max(e - w, (n - s) * 1.5)) + 0.5)) });
+        }}
+        onCatalogRetry={() => void contextQuery.refetch()} onClose={() => setPanel(null)} />}
       <nav className="map-tools" aria-label="Map controls">
+        <button aria-label="Historical evidence" title="Historical evidence" className={panel === 'context' ? 'active' : ''} onClick={() => { setSelected(null); setPanel(panel === 'context' ? null : 'context'); }}><Layers2 size={18} /></button>
         <button aria-label="Open automatic shortlist" title="Automatic shortlist" onClick={() => { setSelected(null); setPanel(panel === "shortlist" ? null : "shortlist"); }}><Sparkles size={18} /></button>
         <button aria-label="Open investigations" title="Investigations" onClick={() => { setSelected(null); setPanel(panel === 'notebook' ? null : 'notebook'); }}>✎</button>
         <button

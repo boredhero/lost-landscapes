@@ -39,3 +39,15 @@ test('saved suggestions contain job and algorithm provenance', () => {
   assert.deepEqual(finding.detection,d);
   assert.equal(finding.review,'unreviewed');
 });
+
+test('context source snapshots preserve geographic and date semantics', async () => {
+  const {contextSnapshot} = await import('../src/components/Landscape/contextLayers.ts');
+  const source={id:'europe-geology',name:'Regional geology',region:'Fixture',country:'DE',date_kind:'map-and-revision',revision:'v1',verified_at:'2026-10-08',provider:'wms',date_label:'1980 map / 2001 revision',attribution:'National survey',source_url:'https://example.org/metadata',terms_url:'https://example.org/terms',bounds:[5,47,15,55]};
+  const snapshot=contextSnapshot(source,.5);
+  assert.equal(snapshot.country,'DE');
+  assert.equal(snapshot.date_kind,'map-and-revision');
+  assert.equal(snapshot.revision,'v1');
+  assert.equal(snapshot.terms_url,source.terms_url);
+  assert.deepEqual(snapshot.bounds,source.bounds);
+  assert.equal(contextSnapshot(undefined,.5),null);
+});

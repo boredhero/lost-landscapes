@@ -320,6 +320,8 @@
   z-index: 4;
   display: flex;
   flex-direction: column;
+  max-height: calc(100dvh - 230px);
+  overflow-y: auto;
   align-items: center;
   padding: 5px;
   background: var(--paper);
@@ -328,6 +330,7 @@
   box-shadow: 0 3px 16px #132d2520;
 }
 .map-tools button {
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   width: 37px;
@@ -937,3 +940,7 @@
 .elevation-profile svg { width: 100%; background: #e5e8dc; }
 .elevation-profile p { overflow-wrap: anywhere; }
 .drawing-bar { position: absolute; z-index: 8; top: 135px; left: 20px; right: 75px; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: #f4f3e9; border-radius: 8px; }
+
+.context-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.context-panel a { color: #31533b; text-underline-offset: 3px; }
+.context-panel input[type="range"] { padding: 0; }

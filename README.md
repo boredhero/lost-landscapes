@@ -240,3 +240,8 @@ review states, GeoJSON import/export and native elevation profiles with CSV expo
 The automatic shortlist saves prediction snapshots into the same notebook. Scan
 status and cooperative cancellation preserve previous results. See
 [Investigations and measurements](docs/investigations.md) for usage and limits.
+
+The **Historical evidence** panel adds optional dated maps/aerials, geology and
+mining context with opacity, coverage and attribution. Its source registry and
+ArcGIS/XYZ/WMS adapters are designed for US and European expansion; current
+catalog entries are regional pilot coverage. See [source architecture and research](docs/context-sources.md).

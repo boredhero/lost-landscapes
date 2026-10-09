@@ -12,6 +12,7 @@ import type {
 } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import type { Detection } from "../../types";
+import type { ContextSource } from "./contextLayers";
 import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
 import { terrainMinZoom, usesTerrainRadius } from "./terrainLayers";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -27,6 +28,10 @@ export interface CameraTarget {
   id: number;
 }
 interface Props {
+  contextSource?: ContextSource;
+  contextOpacity: number;
+  contextAttempt: number;
+  onContextError: () => void;
   findings: GeoJSON.FeatureCollection;
   drawing: boolean;
   onDrawPoint: (point: number[]) => void;
@@ -60,6 +65,7 @@ const initial = {
 function style(
   aerial: boolean, revision: string, terrainLayer: TerrainLayer = "relief",
   reliefRadius: ReliefRadius = 25, lightAzimuth = 315,
+  contextSource?: ContextSource, contextOpacity = 0.55, contextAttempt = 0,
 ): StyleSpecification {
   const suffix = `?v=${encodeURIComponent(revision)}`;
   const derivative = terrainLayer !== "relief";
@@ -68,6 +74,15 @@ function style(
   return {
     version: 8,
     sources: {
+      ...(contextSource ? { 'context-overlay': {
+        type: 'raster' as const,
+        tiles: [contextSource.tile_url + (contextSource.tile_url.includes('?') ? '&' : '?') + `attempt=${contextAttempt}`],
+        tileSize: 256,
+        bounds: contextSource.bounds,
+        minzoom: contextSource.min_zoom,
+        maxzoom: contextSource.max_zoom,
+        attribution: contextSource.attribution,
+      } } : {}),
       terrain: {
         type: "raster-dem",
         tiles: [`/api/landscape/tiles/terrain/{z}/{x}/{y}.png${suffix}`],
@@ -133,6 +148,7 @@ function style(
               },
             },
           ]),
+      ...(contextSource ? [{ id: 'context-overlay', type: 'raster' as const, source: 'context-overlay', paint: { 'raster-opacity': contextOpacity, 'raster-fade-duration': 0 } }] : []),
     ],
   };
 }
@@ -160,8 +176,8 @@ export default function LandscapeMap(props: Props) {
   const map = useRef<MapRef>(null);
   const [camera, setCamera] = useState(initial);
   const baseStyle = useMemo(
-    () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth),
-    [mode, revision, terrainLayer, reliefRadius, lightAzimuth],
+    () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt),
+    [mode, revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt],
   );
   const aerialStyle = useMemo(() => style(true, revision), [revision]);
   const terrain = useMemo(
@@ -260,7 +276,11 @@ export default function LandscapeMap(props: Props) {
         interactiveLayerIds={["candidates", "finding-points", "finding-lines", "finding-areas"]}
         cursor={props.drawing ? "crosshair" : "grab"}
         doubleClickZoom={!props.drawing}
-        onError={onTerrainError}
+        onError={event => {
+          const sourceId = (event as unknown as { sourceId?: string }).sourceId;
+          if (sourceId === 'context-overlay') props.onContextError();
+          else onTerrainError();
+        }}
       >
         <Source id="investigation-data" type="geojson" data={props.findings}>
           <Layer id="finding-areas" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': '#efc578', 'fill-opacity': 0.2 }} />

@@ -549,3 +549,27 @@ Later work includes shared server persistence/identity, attachments, richer edit
 history and geometry editing, cross-scan physical-feature deduplication, and
 production queue load/worker-crash recovery testing. Next planned delivery is F,
 historical context and field-review tools.
+
+### Delivery F1 — historical and environmental evidence overlays
+
+Implemented a provider-independent, versioned geographic source registry with
+separate ArcGIS map/image, XYZ and WMS adapters. Source entries carry geographic
+coverage, country/region, date semantics, revision/verification, attribution and
+terms. The frontend consumes a shared catalog contract; adding supported US or
+European sources needs catalog entries, not country-specific UI code. WMS uses
+explicit EPSG:3857 axis order, covered by a European geographic fixture test.
+
+Initial verified regional entries are the USGS 1904 Pittsburgh sheet (1957 imprint),
+May 1939 Pittsburgh aerials, 2010-published Allegheny orthophotos, Pennsylvania
+bedrock geology and DEP abandoned-mine problem areas. They are pilot sources;
+nationwide discovery and European coverage have not been implemented. All five
+returned valid tiles in the live smoke check (0.29–1.41 seconds per request).
+
+Optional overlays include opacity, metadata/terms/legend links, coverage navigation
+and failure recovery. They preserve 3D and aerial comparison; investigation snapshots
+retain source identity, revision, date semantics and view opacity. Provider requests
+have six-second total deadlines and separate four-request concurrency. No imagery
+bulk export or persistent mirror is created. See [context-sources.md](context-sources.md)
+for research, exact sources, architecture and the catalog/discovery expansion path.
+Field packets/observation imports, richer evidence attachments, and nationwide
+catalog discovery remain later Delivery F work.
