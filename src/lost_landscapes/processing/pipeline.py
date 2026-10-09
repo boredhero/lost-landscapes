@@ -5,8 +5,10 @@ All derivative computation is in derivatives.py.
 """
 
 import json
+import shutil
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -188,15 +190,19 @@ class ProcessingPipeline:
         output_dir: Path,
         resolution: float = 1.0,
         target_srs: str | None = None,
+        namespace: str = "",
+        checkpoint: Callable[[], None] | None = None,
     ):
         self.output_dir = output_dir
+        self.namespace = namespace
+        self.checkpoint = checkpoint or (lambda: None)
         self.resolution = resolution
         self.target_srs = target_srs
 
     def process_point_cloud(self, input_path: Path, force: bool = False) -> ProcessedTile:
         """Process a LAZ/COPC point cloud through the full pipeline."""
         stem = input_path.stem.replace(".copc", "")
-        tile_dir = self.output_dir / stem
+        tile_dir = self.output_dir / f"{self.namespace}{stem}"
         tile_dir.mkdir(parents=True, exist_ok=True)
         deriv_dir = tile_dir / "derivatives"
         input_size_mb = round(input_path.stat().st_size / 1e6, 2) if input_path.exists() else None
@@ -213,6 +219,7 @@ class ProcessingPipeline:
         profiler = new_profiler(f"process_point_cloud:{stem}")
         with profiler.stage("dem_generation", parent="processing", input=str(input_path)):
             dem_path, filled_path = generate_dem_pdal(input_path, tile_dir, self.resolution, self.target_srs)
+        self.checkpoint()
         with profiler.stage("derivatives_all", parent="processing"):
             derivative_paths = compute_all_derivatives(dem_path, filled_path, deriv_dir, max_workers=settings.derivative_workers)
         marker.write_text(f"processed\nderivatives: {len(derivative_paths)}\n")
@@ -228,7 +235,7 @@ class ProcessingPipeline:
     def process_dem_file(self, dem_path: Path, force: bool = False) -> ProcessedTile:
         """Process from an existing DEM file (no PDAL needed)."""
         stem = dem_path.stem
-        tile_dir = self.output_dir / stem
+        tile_dir = self.output_dir / f"{self.namespace}{stem}"
         tile_dir.mkdir(parents=True, exist_ok=True)
         deriv_dir = tile_dir / "derivatives"
         dem_size_mb = round(dem_path.stat().st_size / 1e6, 2) if dem_path.exists() else None
@@ -242,6 +249,15 @@ class ProcessingPipeline:
                 return cached
             log.warning("stale_cache_reprocessing", tile_dir=str(tile_dir), derivatives=len(cached.derivative_paths))
             marker.unlink(missing_ok=True)
+        # Preserve the DEM in processed storage before the worker cleans raw downloads.
+        retained_dem = tile_dir / f"{stem}_dem.tif"
+        if dem_path.resolve() != retained_dem.resolve():
+            shutil.copy2(dem_path, retained_dem)
+            for suffix in (".msk", ".aux.xml"):
+                sidecar = Path(str(dem_path) + suffix)
+                if sidecar.exists():
+                    shutil.copy2(sidecar, Path(str(retained_dem) + suffix))
+        dem_path = retained_dem
         profiler = new_profiler(f"process_dem:{stem}")
         filled_path = tile_dir / f"{stem}_filled.tif"
         if not filled_path.exists():
@@ -250,6 +266,7 @@ class ProcessingPipeline:
                 log.info("process_dem_fill_complete", elapsed_s=round(elapsed, 3), output=str(filled_path))
         else:
             log.info("process_dem_filled_cached", path=str(filled_path))
+        self.checkpoint()
         with profiler.stage("derivatives_all", parent="processing"):
             derivative_paths = compute_all_derivatives(dem_path, filled_path, deriv_dir, max_workers=settings.derivative_workers)
         marker.write_text(f"processed\nderivatives: {len(derivative_paths)}\n")

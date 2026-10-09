@@ -44,6 +44,9 @@ jobs:
       - name: Frontend lint (zero warnings)
         run: npm run lint -- --max-warnings=0
         working-directory: frontend
+      - name: Investigation contracts
+        run: npm test
+        working-directory: frontend
       - name: TypeScript
         run: npx tsc -b --pretty false
         working-directory: frontend

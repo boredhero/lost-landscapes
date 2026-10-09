@@ -2,8 +2,9 @@
 
 Status: Stage 1's bounded terrain visualization implementation and reference/
 performance checks are complete for delivery on `develop`. Production release
-is pending. The evaluation foundation is implemented; the full scientific
-evaluation harness and later product stages remain incomplete.
+is pending. The evaluation foundation, local investigations/measurements, and scan lifecycle/
+shortlist workflow are implemented. The full scientific evaluation harness,
+historical context, richer investigation tools and broader detectors remain incomplete.
 The acceptance criteria below are release gates, not claims that
 every item has passed. Later stages remain pending. This plan follows the CPU deployment
 and delivery rules in `CLAUDE.md`.
@@ -224,7 +225,7 @@ is an early dependency even though the full evaluation harness lands later.
 
 ## Stage 2 — Measurements and persistent investigations
 
-**Status:** pending. **Depends on:** Stage 1.
+**Status:** local core implemented in Delivery D; richer history, geometry editing and shared server persistence remain pending. **Depends on:** Stage 1.
 
 Add map-drawn elevation profiles with distance/elevation axes, height/depth,
 length and area measurements, and visible source/coverage limitations. Measurements
@@ -482,7 +483,7 @@ were skipped; Ruff, frontend ESLint, TypeScript and production build passed.
 Final browser checks passed SVF, both openness views, VAT, radius switching,
 2D/3D, aerial comparison and mobile layout with no JavaScript errors, failed
 terrain requests or horizontal overflow. Angled 3D remains available for all views.
-Next product milestone: Delivery D, measurements and persistent investigations.
+Deliveries D and E are now implemented below; the next planned delivery is F, historical context and field review.
 
 Deliver stages as small reviewable changes; a stage can span multiple PRs.
 Documentation status and validation results must reflect actual implementation.
@@ -523,3 +524,28 @@ legacy saved candidates migrate without deleting the original copy. Desktop and
 mobile drawing, persistence and export workflows have been exercised. See
 [investigations.md](investigations.md) for bounds and limitations. Shared accounts,
 server synchronization, attachments and geometry vertex editing remain later work.
+
+### Delivery E — implemented: scan lifecycle and shortlist review
+
+API job states normalize consistently in frontend clients. The main viewer
+restores scan tracking after refresh, supports cancellation/reconnect, clears
+terminal jobs, and reports partial failures. The specialist viewer uses a single
+bounded polling subscription rather than conflicting WebSocket retries. Consumer
+scans share the bounded submission and queue-failure path.
+
+Cancellation and worker progress/result writes serialize on the job row. Pending
+work is revoked; running work stops at cooperative phase boundaries. Native work
+already in progress may finish before stopping. Scan-specific file paths prevent
+cross-scan deletion/cleanup, and scans preserve prior detections and terrain.
+All-failed tile runs report failure rather than successful completion.
+
+The current-view shortlist supports inspecting candidates and saving immutable
+prediction snapshots into investigations, with independent human review/notes.
+Repeated saves are idempotent per candidate within an investigation. New worker
+results carry originating job/configuration metadata. Depression-specific
+classification remains unchanged; broader feature families are Delivery G.
+
+Later work includes shared server persistence/identity, attachments, richer edit
+history and geometry editing, cross-scan physical-feature deduplication, and
+production queue load/worker-crash recovery testing. Next planned delivery is F,
+historical context and field-review tools.

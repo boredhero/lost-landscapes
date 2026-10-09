@@ -17,13 +17,13 @@ function Profile({ data }: { data: Measurement }) {
   let path = '', connected = false, previousSource: string | null = null;
   for (const s of data.samples) {
     if (s.elevation_m === null) { connected = false; continue; }
-    const x = 10 + 280 * s.distance_m / (data.length_m || 1), y = 100 - 80 * (s.elevation_m - low) / (high - low || 1);
+    const x = 45 + 240 * s.distance_m / (data.length_m || 1), y = 100 - 65 * (s.elevation_m - low) / (high - low || 1);
     path += `${connected && s.source === previousSource ? 'L' : 'M'}${x},${y} `;
     connected = true; previousSource = s.source;
   }
   return <div className="elevation-profile">
-    {data.samples.length > 1 ? <svg viewBox="0 0 300 120" role="img" aria-label={`Elevation profile from ${low.toFixed(1)} to ${high.toFixed(1)} metres`}><path d={path} fill="none" stroke="currentColor" strokeWidth="2" /></svg> : null}
-    <p>{low.toFixed(1)}–{high.toFixed(1)} m elevation · {data.samples.filter(s => s.elevation_m === null).length} missing samples</p>
+    {data.samples.length > 1 ? <svg viewBox="0 0 300 135" role="img" aria-label={`Elevation profile from ${low.toFixed(1)} to ${high.toFixed(1)} metres`}><path d="M45 25 V100 H285" fill="none" stroke="currentColor" strokeWidth="0.5" /><path d={path} fill="none" stroke="currentColor" strokeWidth="2" /><g fontSize="10" fill="currentColor"><text x="2" y="35">{high.toFixed(1)}</text><text x="2" y="100">{low.toFixed(1)}</text><text x="2" y="16">Elevation (m)</text><text x="45" y="115">0</text><text x="285" y="115" textAnchor="end">{data.length_m.toFixed(1)}</text><text x="160" y="130" textAnchor="middle">Distance (m)</text></g></svg> : null}
+    <p>{low.toFixed(1)}–{high.toFixed(1)} m elevation · {(high - low).toFixed(1)} m range · {data.samples.filter(s => s.elevation_m === null).length} missing samples</p>
     <p className="muted">Native cell elevations, without 3D exaggeration. Gaps and source boundaries break the profile. Datums are not harmonized.</p>
     {data.sources.map(s => <p className="muted" key={s.id}>{s.id} · {s.resolution_m.join(' × ')} m · {s.vertical_datum ?? 'Unknown vertical datum'} · {s.elevation_units}</p>)}
     <button onClick={() => download('elevation-profile.csv', 'distance_m,longitude,latitude,elevation_m,source\n' + data.samples.map(s => [s.distance_m, s.lon, s.lat, s.elevation_m ?? '', JSON.stringify(s.source ?? '')].join(',')).join('\n'), 'text/csv')}>Export profile CSV</button>
@@ -54,7 +54,7 @@ export default function NotebookPanel(props: Props) {
     {error && <p role="alert">{error}</p>}
     <label>Investigation<select aria-label="Investigation" value={group.id} onChange={e => onGroup(e.target.value)}>{book.investigations.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
     <label>Name<input value={group.name} maxLength={120} onChange={e => onBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, name: e.target.value } : g) })} /></label>
-    <div className="notebook-actions"><button onClick={() => { const g = newInvestigation('New investigation'); onBook({ ...book, investigations: [...book.investigations, g] }); onGroup(g.id); }}>New investigation</button><button onClick={() => download('lost-landscapes.geojson', JSON.stringify(exportNotebook(book), null, 2))}>Export GeoJSON</button></div>
+    <div className="notebook-actions"><button disabled={book.investigations.length >= 100} onClick={() => { const g = newInvestigation('New investigation'); onBook({ ...book, investigations: [...book.investigations, g] }); onGroup(g.id); }}>New investigation</button><button onClick={() => download('lost-landscapes.geojson', JSON.stringify(exportNotebook(book), null, 2))}>Export GeoJSON</button></div>
     <label>Import GeoJSON<input type="file" accept=".geojson,.json,application/geo+json" onChange={async e => {
       const file = e.target.files?.[0]; if (!file) return;
       try {
@@ -69,7 +69,7 @@ export default function NotebookPanel(props: Props) {
       } catch (e) { setImportError(e instanceof Error ? e.message : 'Import failed'); }
     }} /></label>
     {importError && <p role="alert">{importError}</p>}
-    <div className="notebook-actions">{(['Point', 'LineString', 'Polygon'] as const).map((type, i) => <button key={type} aria-pressed={drawing === type} onClick={() => onDraw(type)}>{['Mark point', 'Draw line', 'Draw area'][i]}</button>)}</div>
+    <div className="notebook-actions">{(['Point', 'LineString', 'Polygon'] as const).map((type, i) => <button key={type} aria-pressed={drawing === type} disabled={group.findings.length >= 1000} onClick={() => onDraw(type)}>{['Mark point', 'Draw line', 'Draw area'][i]}</button>)}</div>
     {drawing && <div role="status"><p>Click the map to place {drawing === 'Point' ? 'a point' : 'vertices'}. {vertices} placed. Close this panel for more room; drawing controls remain available.</p><div className="notebook-actions"><button onClick={onUndo} disabled={!vertices}>Undo vertex</button><button onClick={onFinish} disabled={vertices < (drawing === 'Polygon' ? 3 : drawing === 'LineString' ? 2 : 1)}>Finish drawing</button><button onClick={() => onDraw(null)}>Cancel drawing</button></div></div>}
     <div className="panel-divider" />
     <p>{group.findings.length} findings</p>

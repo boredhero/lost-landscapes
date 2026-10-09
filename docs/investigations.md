@@ -35,3 +35,45 @@ Validation: native synthetic DEM tests cover geodesic lengths/areas, scale and
 offset, missing elevation and invalid inputs. Desktop/mobile browser checks cover
 point/line/area drawing, notes/evidence/review, profile and area measurement,
 GeoJSON round trips, reload persistence, and restoration of the 3D view.
+
+## Scanning and shortlist review
+
+Open the automatic shortlist (sparkle button) to inspect the highest-scoring
+candidates in the current map view. The list is limited to 100 candidates with
+scores at least 0.4; it is not a complete inventory. Saving copies the suggestion,
+its score, morphometrics, source-pass metadata and originating scan/configuration
+into the selected investigation. Re-saving opens the existing finding rather
+than creating a duplicate. Human review remains separate from the original
+machine output, and the snapshot survives later server changes.
+
+Current scans still use the depression-oriented `sinkhole_survey` configuration.
+They do not yet discover every feature family in the roadmap. Analysis remains
+opt-in and requires the existing database, queue and CPU worker. Scan views are
+bounded to 4 km across; the legacy consumer flow now uses the same limits and
+queue failure handling. Queued jobs stay pending until a worker starts them.
+Frontend clients normalize API states consistently and stop polling terminal jobs.
+The main viewer reconnects to its tracked job after a same-tab refresh, provides
+retry and cancellation controls, and reports partial tile failures.
+
+Cancellation is cooperative: it persists a terminal state under a row lock,
+revokes queued Celery work without killing a shared worker, and checks state
+before downloads, native derivative processing, detection and committing results.
+An already-running native tool/phase may finish before stopping. Status updates
+and detection commits lock the same job row, so a late completion cannot overwrite
+cancellation or append detections after cancellation commits. Already committed
+partial results remain available. Scans use separate raw and processed paths and
+no longer delete earlier detections or terrain at startup. Repeat scans can thus
+produce separate candidate records for the same physical shape; physical-feature
+deduplication across scans is future work.
+
+The tests exercise job state transitions, pending and in-flight cancellation,
+broker failure, callbacks, malformed configuration, persistence contracts and
+browser reconnect/review flows. They do not constitute a production throughput
+or live Redis/PostGIS/native-processing soak test.
+
+For a bounded local regression gate, run `scripts/check_changes.sh`. It uses cached
+Ruff, targeted measurement/job tests and frontend contract/lint/build checks,
+with hard per-command timeouts (15–45 seconds). It does not download dependencies,
+load terrain in a browser or start a live scan. Full native-tool coverage remains
+in CI. Browser job-state checks use fixture terrain and a 60-second total deadline;
+real DEM visual checks are separate from the job/persistence workflow.

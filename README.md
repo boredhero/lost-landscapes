@@ -234,3 +234,9 @@ America/New_York. Minor/patch updates are grouped per ecosystem; major updates
 remain separate for review. Version-update PRs target master and run the same
 CI checks. This schedule activates once .github/dependabot.yml reaches master.
 Security updates are separate from this weekly version-update schedule.
+
+Investigations now support device-local points, lines, areas, notes, evidence references,
+review states, GeoJSON import/export and native elevation profiles with CSV export.
+The automatic shortlist saves prediction snapshots into the same notebook. Scan
+status and cooperative cancellation preserve previous results. See
+[Investigations and measurements](docs/investigations.md) for usage and limits.

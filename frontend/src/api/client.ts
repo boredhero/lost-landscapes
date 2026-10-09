@@ -1,4 +1,6 @@
+import type { Job } from '../types';
 const BASE = '/api';
+function normalizeJob(job: Job): Job { return { ...job, status: job.status.toUpperCase() }; }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
@@ -40,11 +42,12 @@ export async function validateDetection(id: string, verdict: string, notes?: str
 }
 
 export async function getJobs() {
-  return fetchJson<any>('/jobs');
+  const result = await fetchJson<{ jobs: Job[] }>('/jobs');
+  return { ...result, jobs: result.jobs.map(normalizeJob) };
 }
 
 export async function createJob(body: { job_type: string; bbox?: any; pass_config?: string }) {
-  return fetchJson<any>('/jobs', { method: 'POST', body: JSON.stringify(body) });
+  return normalizeJob(await fetchJson<Job>('/jobs', { method: 'POST', body: JSON.stringify(body) }));
 }
 
 export async function cancelJob(id: string) {
@@ -88,7 +91,7 @@ export async function startConsumerScan(lat: number, lon: number, radiusKm: numb
 }
 
 export async function getJob(id: string) {
-  return fetchJson<any>(`/jobs/${id}`);
+  return normalizeJob(await fetchJson<Job>(`/jobs/${id}`));
 }
 
 export async function getTileCoverage(west: number, south: number, east: number, north: number, z: number) {

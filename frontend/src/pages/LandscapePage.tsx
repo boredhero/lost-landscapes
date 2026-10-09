@@ -5,7 +5,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
-  Check,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -30,11 +29,11 @@ import type {
   CameraTarget,
   MapMode,
 } from "../components/Landscape/LandscapeMap";
-import { createJob, geocodeZip, getDetections, getJob } from "../api/client";
+import { cancelJob, createJob, geocodeZip, getDetections, getJob } from "../api/client";
 import type { Detection, Job } from "../types";
 import { FEATURE_LABELS } from "../types";
 import NotebookPanel from '../investigations/NotebookPanel';
-import { loadNotebook, newFinding, STORAGE_KEY } from '../investigations/model';
+import { fromDetection, loadNotebook, newFinding, STORAGE_KEY } from '../investigations/model';
 import type { Finding, Geometry, Notebook } from '../investigations/model';
 import "./landscape.css";
 
@@ -104,7 +103,7 @@ export default function LandscapePage() {
   const [is3D, set3D] = useState(true);
   const [exaggeration, setExaggeration] = useState(1.25);
   const [split, setSplit] = useState(50);
-  const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | null>("explore");
+  const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | "shortlist" | null>("explore");
   const [coverage, setCoverage] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -120,13 +119,7 @@ export default function LandscapePage() {
     sessionStorage.getItem("landscape-job"),
   );
   const [submitting, setSubmitting] = useState(false);
-  const [saved, setSaved] = useState<Detection[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("landscape-saved") || "[]");
-    } catch {
-      return [];
-    }
-  });
+  const [cancelling, setCancelling] = useState(false);
   const [initialNotebook] = useState(loadNotebook);
   const [book, setBook] = useState(initialNotebook.book);
   const [storageError, setStorageError] = useState(initialNotebook.error);
@@ -295,15 +288,15 @@ export default function LandscapePage() {
     visit(catalog.areas[0]);
   }, [catalog.areas, visit]);
   useEffect(() => {
-    if (job?.status !== "COMPLETED") return;
+    if (!job || !["COMPLETED", "FAILED", "CANCELLED"].includes(job.status)) return;
     void client.invalidateQueries({ queryKey: ["landscape-catalog"] });
     void client.invalidateQueries({ queryKey: ["landscape-detections"] });
     setNotice(
-      "Analysis complete. Select a candidate on the map to inspect it.",
+      job.status === "COMPLETED" ? `Analysis complete. ${job.result_summary?.tiles_failed ? "Some tiles failed; coverage is partial. " : ""}Open the shortlist to review candidates.` : job.status === "CANCELLED" ? "Scan cancelled. A native processing phase already in progress may take time to stop. Earlier results are preserved." : job.error_message || "Analysis failed. Earlier results are preserved.",
     );
     sessionStorage.removeItem("landscape-job");
     setJobId(null);
-  }, [job?.status, client]);
+  }, [job, client]);
   const onView = useCallback((next: ViewState, bounds: Bounds) => {
     setView(next);
     setBbox(bounds);
@@ -411,11 +404,18 @@ export default function LandscapePage() {
     );
   }
   function save(detection: Detection) {
-    const next = saved.some((d) => d.id === detection.id)
-      ? saved.filter((d) => d.id !== detection.id)
-      : [...saved, detection];
-    setSaved(next);
-    localStorage.setItem("landscape-saved", JSON.stringify(next));
+    const existing = group.findings.find(f => f.detection?.id === detection.id);
+    const item = existing ?? fromDetection(detection);
+    if (!existing && group.findings.length >= 1000) { setNotice("This investigation has 1,000 findings. Create another investigation first."); return; }
+    if (!existing) updateBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, findings: [...g.findings, item] } : g) });
+    setFindingId(item.id); setSelected(null); setPanel('notebook');
+  }
+  async function cancelScan() {
+    if (!jobId || cancelling) return;
+    setCancelling(true);
+    try { await cancelJob(jobId); await jobQuery.refetch(); }
+    catch (error) { setNotice(message(error)); }
+    finally { setCancelling(false); }
   }
   function toggle3D() {
     set3D(!is3D);
@@ -590,24 +590,8 @@ export default function LandscapePage() {
               lines and sharp corners can be worth a closer look.
             </p>
           </div>
-          {saved.length > 0 && (
-            <div className="saved-places">
-              <div className="section-label">SAVED ON THIS DEVICE</div>
-              {saved.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => {
-                    setSelected(d);
-                    move({ longitude: d.lon, latitude: d.lat, zoom: 17 });
-                  }}
-                >
-                  <MapPin size={14} />
-                  {FEATURE_LABELS[d.feature_type] ?? "Terrain candidate"}
-                  <ChevronRight size={14} />
-                </button>
-              ))}
-            </div>
-          )}
+          <button className="primary-button" onClick={() => setPanel('notebook')}>Open investigations · {group.findings.length} findings</button>
+          <button className="text-button" onClick={() => setPanel('shortlist')}>Review automatic suggestions</button>
           <div className="panel-footer">
             <span className="status-dot" /> REAL TERRAIN. NEW PERSPECTIVES.
           </div>
@@ -654,14 +638,7 @@ export default function LandscapePage() {
             </div>
           </dl>
           <button className="primary-button" onClick={() => save(selected)}>
-            {saved.some((d) => d.id === selected.id) ? (
-              <Check size={16} />
-            ) : (
-              <MapPin size={16} />
-            )}{" "}
-            {saved.some((d) => d.id === selected.id)
-              ? "Saved · remove"
-              : "Save this place"}
+            <MapPin size={16} /> {group.findings.some(f => f.detection?.id === selected.id) ? 'Open saved finding' : 'Save to investigation'}
           </button>
           <button
             className="text-button"
@@ -678,12 +655,24 @@ export default function LandscapePage() {
           </button>
         </aside>
       )}
+      {panel === 'shortlist' && <aside className="landscape-panel notebook-panel" aria-label="Automatic shortlist">
+        <div className="panel-eyebrow"><span>AUTOMATIC SUGGESTIONS</span><button aria-label="Close shortlist" onClick={() => setPanel(null)}>×</button></div>
+        <h2>Review the shapes.</h2>
+        <p className="muted">Highest scoring candidates in the current map view (up to 100, score ≥ 0.4). Current scanning is tuned for depressions; these are not verified sites.</p>
+        <p>Save into: {group.name}</p>
+        {!catalog.analysis_enabled && <p>Analysis is not enabled on this deployment. Saved findings remain available in investigations.</p>}
+        {detectionsQuery.isPending && catalog.analysis_enabled && <p>Loading suggestions…</p>}
+        {detectionsQuery.isError && <button onClick={() => void detectionsQuery.refetch()}>Could not load suggestions — retry</button>}
+        {!detections.length && !detectionsQuery.isPending && !detectionsQuery.isError && <p>No candidates in this map view.</p>}
+        {detections.map(d => { const saved = group.findings.find(f => f.detection?.id === d.id); return <div className="shortlist-item" key={d.id}><strong>{FEATURE_LABELS[d.feature_type] ?? 'Terrain candidate'}</strong><p>Score {Math.round(d.confidence * 100)} / 100{saved ? ` · ${saved.review}` : ' · unreviewed'}</p><div className="notebook-actions"><button onClick={() => { setSelected(d); setPanel(null); move({ longitude: d.lon, latitude: d.lat, zoom: 17 }); }}>Inspect</button><button onClick={() => save(d)}>{saved ? 'Open saved finding' : 'Save to investigation'}</button></div></div>; })}
+      </aside>}
       {panel === 'notebook' && <NotebookPanel book={book} group={group} selected={finding} drawing={drawing} vertices={vertices.length} error={storageError}
         onBook={updateBook} onGroup={(id) => { setGroupId(id); setFindingId(null); }} onSelect={setFindingId} onUpdate={updateFinding}
         onDraw={startDrawing} onFinish={finishDrawing} onUndo={() => setVertices(vertices.slice(0, -1))} onClose={() => setPanel(null)}
         onLocate={(f) => { const p = f.geometry.type === 'Point' ? f.geometry.coordinates : f.geometry.type === 'Polygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; move({ longitude: p[0], latitude: p[1], zoom: 17 }); }} />}
       {drawing && panel !== 'notebook' && <div className="drawing-bar"><span>Click map to place vertices ({vertices.length})</span><button onClick={() => setVertices(vertices.slice(0, -1))}>Undo</button><button onClick={finishDrawing}>Finish drawing</button><button onClick={endDrawing}>Cancel drawing</button></div>}
       <nav className="map-tools" aria-label="Map controls">
+        <button aria-label="Open automatic shortlist" title="Automatic shortlist" onClick={() => { setSelected(null); setPanel(panel === "shortlist" ? null : "shortlist"); }}><Sparkles size={18} /></button>
         <button aria-label="Open investigations" title="Investigations" onClick={() => { setSelected(null); setPanel(panel === 'notebook' ? null : 'notebook'); }}>✎</button>
         <button
           aria-label="Zoom in"
@@ -951,12 +940,15 @@ export default function LandscapePage() {
                 ? "Could not reach analysis service"
                 : job?.status === "FAILED"
                   ? "Analysis could not finish"
-                  : "Analyzing this landscape"}
+                  : job?.status === "PENDING" ? "Scan queued" : "Analyzing this landscape"}
             </strong>
             <button
               className="icon-button"
-              aria-label="Dismiss analysis status"
+              aria-label="Forget scan tracking"
+              disabled={busy && !jobQuery.isError}
+              title="Only forget an unreachable scan if you no longer need to track it"
               onClick={() => {
+                if (busy && !window.confirm("This only forgets tracking; the scan may still be running. Continue?")) return;
                 setJobId(null);
                 sessionStorage.removeItem("landscape-job");
               }}
@@ -973,6 +965,8 @@ export default function LandscapePage() {
                     "Preparing terrain. You can keep exploring.",
                 )}
           </p>
+          {jobQuery.isError && <button onClick={() => void jobQuery.refetch()}>Reconnect to scan</button>}
+          {!!jobId && busy && <button onClick={() => void cancelScan()} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel scan'}</button>}
           {!jobQuery.isError && job?.status !== "FAILED" && (
             <progress max="100" value={job?.progress ?? 0} />
           )}

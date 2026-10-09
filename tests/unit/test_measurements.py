@@ -61,7 +61,7 @@ def test_polygon_ellipsoid_area(dem):
     ("Point", [float("nan"), 0]), ("Point", [181, 0]),
     ("LineString", [[0, 0], [1, 0]]), ("LineString", [[0, 0], [0, 0]]),
     ("Polygon", [[[0, 0], [.01, .01], [0, .01], [.01, 0], [0, 0]]]),
-    ("Polygon", []), ("Point", [0, 0, 0]),
+    ("Polygon", []), ("Point", [0, 0, 0]), ("LineString", [[0, 0]]),
 ])
 def test_invalid_or_unbounded_geometry(kind, coordinates):
     with pytest.raises((ValidationError, ValueError)):

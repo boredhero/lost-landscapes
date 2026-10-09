@@ -27,7 +27,8 @@ class MeasurementRequest(BaseModel):
             )
             if self.type == "Polygon" and len(self.coordinates) != 1:
                 raise ValueError("Use a single ring without holes")
-            if not 1 <= len(points) <= 500:
+            minimum = 1 if self.type == "Point" else 2 if self.type == "LineString" else 4
+            if not minimum <= len(points) <= 500:
                 raise ValueError("Use at most 500 vertices")
             for point in points:
                 if len(point) != 2 or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in point):

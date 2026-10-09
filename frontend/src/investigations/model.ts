@@ -38,7 +38,7 @@ export function newFinding(geometry: Geometry, context: Record<string, unknown>)
   return { id: crypto.randomUUID(), title: 'Terrain observation', geometry, notes: '', evidence: '', review: 'unreviewed', createdAt: now, updatedAt: now, context };
 }
 export function fromDetection(detection: Detection): Finding {
-  return { ...newFinding({ type: 'Point', coordinates: [detection.lon, detection.lat] }, { origin: 'automatic suggestion' }), title: detection.feature_type.replaceAll('_', ' '), detection };
+  return { ...newFinding({ type: 'Point', coordinates: [detection.lon, detection.lat] }, { origin: 'automatic suggestion', job_id: detection.source_passes?.job_id ?? null, pass_config: detection.source_passes?.pass_config ?? null }), title: typeof detection.feature_type === 'string' ? detection.feature_type.replaceAll('_', ' ') : 'Terrain candidate', detection };
 }
 export function validateNotebook(value: unknown): Notebook {
   if (!value || typeof value !== 'object') throw Error('Invalid investigation file');

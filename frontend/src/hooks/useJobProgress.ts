@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { getJob } from '../api/client';
 
@@ -6,7 +6,7 @@ interface JobProgress {
   progress: number;
   stage: string | null;
   source: string | null;
-  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | null;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | null;
   totalDetections: number | null;
   downloadMb: number | null;
   tilesDone: number | null;
@@ -15,131 +15,42 @@ interface JobProgress {
   error: string | null;
 }
 
-/**
- * WebSocket hook for real-time job progress.
- * Connects to /ws/jobs when jobId is provided, falls back to polling on disconnect.
- */
+/** Poll one job, including terminal states and reconnects, without global socket races. */
 export function useJobProgress(jobId: string | null): JobProgress {
-  const setProcessingProgress = useStore((s) => s.setProcessingProgress);
-  const setProcessingStage = useStore((s) => s.setProcessingStage);
-  const wsRef = useRef<WebSocket | null>(null);
-  const retriesRef = useRef(0);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const [state, setState] = useState<JobProgress>({
-    progress: 0,
-    stage: null,
-    source: null,
-    status: null,
-    totalDetections: null,
-    downloadMb: null,
-    tilesDone: null,
-    tilesTotal: null,
-    detectionsSoFar: null,
-    error: null,
-  });
-
-  const handleJobUpdate = useCallback((job: any) => {
-    const newState: JobProgress = {
-      progress: job.progress || 0,
-      stage: job.stage || null,
-      source: job.source || null,
-      status: job.status?.toUpperCase() || null,
-      totalDetections: job.total_detections ?? null,
-      downloadMb: job.download_mb ?? null,
-      tilesDone: job.tiles_done ?? null,
-      tilesTotal: job.tiles_total ?? null,
-      detectionsSoFar: job.detections_so_far ?? null,
-      error: job.error_message || null,
-    };
-    setState(newState);
-    setProcessingProgress(newState.progress);
-    setProcessingStage(newState.stage);
-  }, [setProcessingProgress, setProcessingStage]);
-
-  // Polling fallback
-  const startPolling = useCallback(() => {
-    if (pollingRef.current || !jobId) return;
-    pollingRef.current = setInterval(async () => {
+  const setProcessingProgress = useStore(s => s.setProcessingProgress);
+  const setProcessingStage = useStore(s => s.setProcessingStage);
+  const [state, setState] = useState<JobProgress>(empty);
+  useEffect(() => {
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function poll() {
+      if (!jobId || disposed) return;
+      let terminal = false;
       try {
         const job = await getJob(jobId);
-        handleJobUpdate(job);
-        if (job.status === 'COMPLETED' || job.status === 'FAILED') {
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      } catch {
-        // ignore polling errors
-      }
-    }, 3000);
-  }, [jobId, handleJobUpdate]);
-
-  useEffect(() => {
-    if (!jobId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset the external job subscription.
-      setState({ progress: 0, stage: null, source: null, status: null, totalDetections: null, downloadMb: null, tilesDone: null, tilesTotal: null, detectionsSoFar: null, error: null });
-      return;
+        if (disposed) return;
+        const summary = job.result_summary ?? {};
+        const next: JobProgress = {
+          progress: job.progress, status: job.status as JobProgress['status'],
+          stage: typeof summary.stage === 'string' ? summary.stage : null,
+          source: typeof summary.source === 'string' ? summary.source : null,
+          totalDetections: typeof summary.total_detections === 'number' ? summary.total_detections : null,
+          downloadMb: typeof summary.download_mb === 'number' ? summary.download_mb : null,
+          tilesDone: typeof summary.tiles_done === 'number' ? summary.tiles_done : null,
+          tilesTotal: typeof summary.tiles_total === 'number' ? summary.tiles_total : null,
+          detectionsSoFar: typeof summary.detections_so_far === 'number' ? summary.detections_so_far : null,
+          error: job.error_message ?? null,
+        };
+        setState(next); setProcessingProgress(next.progress); setProcessingStage(next.stage);
+        terminal = ['COMPLETED', 'FAILED', 'CANCELLED'].includes(job.status);
+      } catch { if (!disposed) setState(s => ({ ...s, error: 'Connection lost; reconnecting to scan…' })); }
+      if (!disposed && !terminal) timer = setTimeout(() => void poll(), 2500);
     }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/jobs`;
-
-    function connect() {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        retriesRef.current = 0;
-        // Stop polling if it was running as fallback
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'job_updates' && Array.isArray(data.jobs)) {
-            const match = data.jobs.find((j: any) => j.id === jobId);
-            if (match) {
-              handleJobUpdate(match);
-            }
-          }
-        } catch {
-          // ignore parse errors
-        }
-      };
-
-      ws.onclose = () => {
-        wsRef.current = null;
-        if (retriesRef.current < 3) {
-          retriesRef.current++;
-          setTimeout(connect, 2000);
-        } else {
-          // Fall back to polling
-          startPolling();
-        }
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    }
-
-    connect();
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    };
-  }, [jobId, handleJobUpdate, startPolling]);
-
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset when subscribing to another job.
+    setState(empty);
+    void poll();
+    return () => { disposed = true; clearTimeout(timer); };
+  }, [jobId, setProcessingProgress, setProcessingStage]);
   return state;
 }
+const empty: JobProgress = { progress: 0, stage: null, source: null, status: null, totalDetections: null, downloadMb: null, tilesDone: null, tilesTotal: null, detectionsSoFar: null, error: null };
