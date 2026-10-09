@@ -33,6 +33,7 @@ from starlette.concurrency import run_in_threadpool
 
 from lost_landscapes import terrain_visualization as visualization
 from lost_landscapes.config import settings
+from lost_landscapes.measurements import MeasurementRequest, measure
 
 router = APIRouter(prefix="/landscape", tags=["landscape"])
 SIZE = 512
@@ -348,3 +349,12 @@ async def tile(layer: str, z: int, x: int, y: int, v: str = Query(""),
         raise HTTPException(503, "Terrain temporarily unavailable") from exc
     cache = "public, max-age=31536000, immutable" if v == revision else "public, max-age=15"
     return Response(data, media_type="image/png", headers={"Cache-Control": cache})
+
+
+@router.post("/measure")
+async def measure_geometry(body: MeasurementRequest):
+    revision, records = await run_in_threadpool(inventory)
+    try:
+        return await asyncio.get_running_loop().run_in_executor(_pool, measure, body, revision, records)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc

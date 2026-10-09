@@ -512,3 +512,14 @@ and existing TLS configuration. Do not couple work to the desktop worker.
 8. ZRC SAZU / Relief Visualization Toolbox, official software and method reference:
    https://www.zrc-sazu.si/en/rvt and
    https://rvt-py.readthedocs.io/en/latest/listofvis_slrm.html
+
+### Delivery D — implemented: local investigations and measurements
+
+Named device-local investigations now contain manual points, lines and areas,
+notes, evidence references, review states and saved terrain context. WGS84
+ellipsoidal measurements and native DEM profiles include missing-data handling,
+source metadata and CSV export. Versioned GeoJSON export/import preserves findings;
+legacy saved candidates migrate without deleting the original copy. Desktop and
+mobile drawing, persistence and export workflows have been exercised. See
+[investigations.md](investigations.md) for bounds and limitations. Shared accounts,
+server synchronization, attachments and geometry vertex editing remain later work.

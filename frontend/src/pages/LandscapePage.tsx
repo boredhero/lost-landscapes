@@ -33,6 +33,9 @@ import type {
 import { createJob, geocodeZip, getDetections, getJob } from "../api/client";
 import type { Detection, Job } from "../types";
 import { FEATURE_LABELS } from "../types";
+import NotebookPanel from '../investigations/NotebookPanel';
+import { loadNotebook, newFinding, STORAGE_KEY } from '../investigations/model';
+import type { Finding, Geometry, Notebook } from '../investigations/model';
 import "./landscape.css";
 
 interface Area {
@@ -101,7 +104,7 @@ export default function LandscapePage() {
   const [is3D, set3D] = useState(true);
   const [exaggeration, setExaggeration] = useState(1.25);
   const [split, setSplit] = useState(50);
-  const [panel, setPanel] = useState<"explore" | "terrain" | null>("explore");
+  const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | null>("explore");
   const [coverage, setCoverage] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -124,6 +127,61 @@ export default function LandscapePage() {
       return [];
     }
   });
+  const [initialNotebook] = useState(loadNotebook);
+  const [book, setBook] = useState(initialNotebook.book);
+  const [storageError, setStorageError] = useState(initialNotebook.error);
+  const [groupId, setGroupId] = useState(initialNotebook.book.investigations[0]?.id);
+  const [findingId, setFindingId] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState<Geometry['type'] | null>(null);
+  const [vertices, setVertices] = useState<number[][]>([]);
+  const was3D = useRef(false);
+  const group = book.investigations.find(g => g.id === groupId) ?? book.investigations[0];
+  const finding = group.findings.find(f => f.id === findingId);
+  function updateBook(next: Notebook) {
+    setBook(next);
+    if (initialNotebook.error) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); setStorageError(''); }
+    catch { setStorageError('Could not save on this device. Export your findings before leaving.'); }
+  }
+  function updateFinding(next: Finding) {
+    setBook(current => {
+      const updated = { ...current, investigations: current.investigations.map(g => ({ ...g, findings: g.findings.map(f => f.id === next.id ? { ...(next.measurement && next.measurement !== f.measurement ? { ...f, measurement: next.measurement } : next), updatedAt: new Date().toISOString() } : f) })) };
+      if (!initialNotebook.error) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); }
+        catch { setStorageError('Could not save on this device. Export your findings before leaving.'); }
+      }
+      return updated;
+    });
+  }
+  function endDrawing() {
+    setDrawing(null); setVertices([]);
+    if (was3D.current) { set3D(true); setTarget({ ...view, pitch: 55, id: Date.now() }); }
+  }
+  function startDrawing(type: Geometry['type'] | null) {
+    if (!type) { endDrawing(); return; }
+    if (!drawing) was3D.current = is3D;
+    setDrawing(type); setVertices([]); setSelected(null);
+    setMode('lidar'); set3D(false); setTarget({ ...view, pitch: 0, id: Date.now() });
+  }
+  function addGeometry(geometry: Geometry) {
+    const item = newFinding(geometry, { revision: catalog.revision, terrainLayer, radius_m: reliefRadius, azimuth: lightAzimuth });
+    updateBook({ ...book, investigations: book.investigations.map(g => g.id === group.id ? { ...g, findings: [...g.findings, item] } : g) });
+    setFindingId(item.id); endDrawing(); setPanel('notebook');
+  }
+  function finishDrawing() {
+    if (drawing === 'LineString' && vertices.length >= 2) addGeometry({ type: 'LineString', coordinates: vertices });
+    if (drawing === 'Polygon' && vertices.length >= 3) addGeometry({ type: 'Polygon', coordinates: [[...vertices, vertices[0]]] });
+  }
+  function drawPoint(point: number[]) {
+    if (drawing === 'Point') addGeometry({ type: 'Point', coordinates: point });
+    else if (vertices.length < 499) setVertices([...vertices, point]);
+  }
+  const investigationFeatures: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection', features: [
+      ...group.findings.map(f => ({ type: 'Feature' as const, geometry: f.geometry, properties: { findingId: f.id, selected: f.id === findingId } })),
+      ...(vertices.length ? [{ type: 'Feature' as const, geometry: vertices.length === 1 ? { type: 'Point' as const, coordinates: vertices[0] } : { type: 'LineString' as const, coordinates: vertices }, properties: { draft: true } }] : []),
+    ],
+  };
   const bootstrapped = useRef(false);
   const catalogQuery = useQuery<Catalog>({
     queryKey: ["landscape-catalog"],
@@ -366,6 +424,10 @@ export default function LandscapePage() {
   return (
     <main className="landscape-app">
       <LandscapeMap
+        findings={investigationFeatures}
+        drawing={!!drawing}
+        onDrawPoint={drawPoint}
+        onFinding={(id) => { setFindingId(id); setSelected(null); setPanel('notebook'); }}
         mode={mode}
         revision={catalog.revision}
         terrainLayer={terrainLayer}
@@ -616,7 +678,13 @@ export default function LandscapePage() {
           </button>
         </aside>
       )}
+      {panel === 'notebook' && <NotebookPanel book={book} group={group} selected={finding} drawing={drawing} vertices={vertices.length} error={storageError}
+        onBook={updateBook} onGroup={(id) => { setGroupId(id); setFindingId(null); }} onSelect={setFindingId} onUpdate={updateFinding}
+        onDraw={startDrawing} onFinish={finishDrawing} onUndo={() => setVertices(vertices.slice(0, -1))} onClose={() => setPanel(null)}
+        onLocate={(f) => { const p = f.geometry.type === 'Point' ? f.geometry.coordinates : f.geometry.type === 'Polygon' ? f.geometry.coordinates[0][0] : f.geometry.coordinates[0]; move({ longitude: p[0], latitude: p[1], zoom: 17 }); }} />}
+      {drawing && panel !== 'notebook' && <div className="drawing-bar"><span>Click map to place vertices ({vertices.length})</span><button onClick={() => setVertices(vertices.slice(0, -1))}>Undo</button><button onClick={finishDrawing}>Finish drawing</button><button onClick={endDrawing}>Cancel drawing</button></div>}
       <nav className="map-tools" aria-label="Map controls">
+        <button aria-label="Open investigations" title="Investigations" onClick={() => { setSelected(null); setPanel(panel === 'notebook' ? null : 'notebook'); }}>✎</button>
         <button
           aria-label="Zoom in"
           title="Zoom in"
