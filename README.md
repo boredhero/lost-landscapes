@@ -266,31 +266,3 @@ inside worker threads. `evidence_queue` and `evidence_fetch_complete` show exter
 imagery queue and total fetch time by source. Requests cancelled or failing before
 completion are logged explicitly. Browser-cache hits and imagery fetched directly
 from Esri do not reach the backend and must be inspected in browser network tools.
-
-### Anonymous visit estimates
-
-The frontend sends one best-effort visit event on page load. A random browser ID
-expires after 30 days; a tab-session ID deduplicates reloads and rotates each UTC
-day. The counter respects Do Not Track and Global Privacy Control and skips counting
-when browser storage is blocked. The counter collects no device fingerprints, IP addresses, user-agent strings
-or locations, and uses no third-party analytics. IDs are pseudonymous;
-counts represent browsers and tab sessions, not verified people. Duplicated tabs
-may share a session ID; clearing storage, automation and blocked tracking affect
-accuracy. This is an operational estimate, not fraud-resistant analytics.
-
-Only daily hashes of the IDs are stored in `data/analytics/visits.sqlite3`, separate
-from the optional analysis database. Records older than 90 days are pruned on the
-next visit. The persistent data mount preserves counts across deploys. Logs contain
-`anonymous_visit_counts` with UTC day, visits, browsers and whether the event was new;
-identifiers are not logged. There is no public reporting endpoint.
-
-Owner report (on the production host, from the application directory):
-
-```sh
-docker compose -f compose.cpu.yml exec api uv run --no-sync python -m lost_landscapes.visits --days 30
-```
-
-Or locally: `.venv/bin/python -m lost_landscapes.visits --days 30`.
-The report is read-only and returns daily counts as JSON; daily unique counts must
-not be summed and described as unique people across the entire period. Analytics
-requests have a three-second browser timeout and never block map loading.

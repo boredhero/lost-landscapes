@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from lost_landscapes import visits
 from lost_landscapes.utils.log_manager import log
 from lost_landscapes.utils.request_logging import RequestLoggingMiddleware
 
@@ -83,7 +82,6 @@ def create_app() -> FastAPI:
         websocket,
     )
 
-    app.include_router(visits.router, prefix="/api")
     app.include_router(landscape.router, prefix="/api")
     app.include_router(context.router, prefix="/api")
     app.include_router(detections.router, prefix="/api")
