@@ -944,3 +944,33 @@
 .context-links { display: flex; flex-wrap: wrap; gap: 12px; }
 .context-panel a { color: #31533b; text-underline-offset: 3px; }
 .context-panel input[type="range"] { padding: 0; }
+
+/* Keep loading visible over the map without blocking navigation or drawing. */
+.map-loading-notices, .request-loading-notices {
+  position: absolute;
+  z-index: 3;
+  right: 76px;
+  top: 110px;
+  display: grid;
+  gap: 6px;
+  max-width: min(360px, calc(100vw - 100px));
+  pointer-events: none;
+}
+.request-loading-notices { top: auto; bottom: 110px; }
+.loading-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #afbc9c;
+  border-radius: 8px;
+  background: #20362ef2;
+  color: #f0f3e6;
+  box-shadow: 0 3px 16px #0004;
+  font-size: 13px;
+}
+.loading-notice svg { flex-shrink: 0; }
+.loading-notice strong, .loading-notice small { display: block; }
+.loading-notice small { margin-top: 4px; font-size: 12px; }
+.loading-elapsed { margin-left: auto; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .loading-notice .spin { animation: none; } }

@@ -6,7 +6,6 @@ caches. Global terrain fills uncovered pixels instead of converting nodata to
 sea level. This module does not require PostGIS or a worker to view terrain.
 """
 
-import asyncio
 import hashlib
 import io
 import json
@@ -34,6 +33,8 @@ from starlette.concurrency import run_in_threadpool
 from lost_landscapes import terrain_visualization as visualization
 from lost_landscapes.config import settings
 from lost_landscapes.measurements import MeasurementRequest, measure
+from lost_landscapes.utils.log_manager import log
+from lost_landscapes.utils.request_logging import timed_executor
 
 router = APIRouter(prefix="/landscape", tags=["landscape"])
 SIZE = 512
@@ -323,27 +324,29 @@ async def tile(layer: str, z: int, x: int, y: int, v: str = Query(""),
         raise HTTPException(422, str(exc)) from exc
     revision, records = await run_in_threadpool(inventory)
     path = tile_cache_path(revision, layer, z, x, y, radius_m, azimuth)
-    loop = asyncio.get_running_loop()
+    cache_hit = path.exists()
+    log.info("terrain_tile", layer=layer, z=z, x=x, y=y, cache="hit" if cache_hit else "miss",
+             radius_m=radius_m, azimuth=azimuth)
     try:
-        if path.exists():
+        if cache_hit:
             data = await run_in_threadpool(path.read_bytes)
         elif layer in visualization.LAYERS:
-            data = await loop.run_in_executor(
+            data = await timed_executor(
                 _pool, _render_cached_tile, revision, records, layer, z, x, y, radius_m, azimuth
             )
         else:
-            local = await loop.run_in_executor(_pool, read_elevation, z, x, y, records)
+            local = await timed_executor(_pool, read_elevation, z, x, y, records)
             if layer == "relief":
-                data = await loop.run_in_executor(_pool, shaded_relief, local, z, y)
+                data = await timed_executor(_pool, shaded_relief, local, z, y)
             else:
                 center = local[PAD:-PAD, PAD:-PAD]
                 if not np.isfinite(local).all():
                     # Slow upstream I/O must not starve local relief or cached tiles.
-                    base = await loop.run_in_executor(_background_pool, background, z, x, y)
-                    center = await loop.run_in_executor(
+                    base = await timed_executor(_background_pool, background, z, x, y)
+                    center = await timed_executor(
                         _pool, composite_elevation, local, base, PAD
                     )
-                data = await loop.run_in_executor(_pool, encode_terrarium, center)
+                data = await timed_executor(_pool, encode_terrarium, center)
             await run_in_threadpool(atomic_write, path, data)
     except (httpx.HTTPError, OSError, ValueError) as exc:
         raise HTTPException(503, "Terrain temporarily unavailable") from exc
@@ -355,6 +358,6 @@ async def tile(layer: str, z: int, x: int, y: int, v: str = Query(""),
 async def measure_geometry(body: MeasurementRequest):
     revision, records = await run_in_threadpool(inventory)
     try:
-        return await asyncio.get_running_loop().run_in_executor(_pool, measure, body, revision, records)
+        return await timed_executor(_pool, measure, body, revision, records)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
