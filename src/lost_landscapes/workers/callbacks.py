@@ -28,8 +28,8 @@ async def _async_session():
 async def _update_progress(job_id: str, percent: float, message: str) -> None:
     """Update job progress in the database."""
     async with _async_session() as session:
-        job = await session.get(Job, UUID(job_id))
-        if job:
+        job = await session.get(Job, UUID(job_id), with_for_update=True, populate_existing=True)
+        if job and job.status in (JobStatus.PENDING, JobStatus.RUNNING):
             job.progress = percent
             log.debug("job_progress_updated", job_id=job_id[:8], percent=round(percent, 1), message=message)
             if percent >= 100:

@@ -108,6 +108,7 @@ def create_app() -> FastAPI:
     # Register all routes
     from lost_landscapes.api.routes import (
         comments,
+        context,
         datasets,
         debug,
         detections,
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(landscape.router, prefix="/api")
+    app.include_router(context.router, prefix="/api")
     app.include_router(detections.router, prefix="/api")
     app.include_router(comments.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")

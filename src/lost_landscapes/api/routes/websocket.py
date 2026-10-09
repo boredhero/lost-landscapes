@@ -61,7 +61,7 @@ async def job_progress_ws(websocket: WebSocket):
                 cutoff = datetime.now(UTC) - timedelta(minutes=5)
                 stmt = select(Job).where(
                     (Job.status.in_(["PENDING", "RUNNING"]))
-                    | ((Job.status.in_(["COMPLETED", "FAILED"])) & (Job.completed_at >= cutoff))
+                    | ((Job.status.in_(["COMPLETED", "FAILED", "CANCELLED"])) & (Job.completed_at >= cutoff))
                 ).order_by(Job.created_at.desc()).limit(50)
                 result = await session.execute(stmt)
                 jobs = result.scalars().all()
@@ -72,6 +72,7 @@ async def job_progress_ws(websocket: WebSocket):
                         "id": str(j.id),
                         "status": j.status.value if j.status else "unknown",
                         "progress": j.progress or 0.0,
+                        "error_message": j.error_message,
                         "job_type": j.job_type.value if j.job_type else "unknown",
                         "stage": summary.get("stage"),
                         "source": summary.get("source"),

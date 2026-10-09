@@ -18,7 +18,6 @@ import asyncio
 import math
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -27,10 +26,12 @@ import rasterio
 from shapely.ops import transform as shapely_transform
 
 from lost_landscapes.config import settings
+from lost_landscapes.pass_configs import pass_config_path
 from lost_landscapes.utils.crs import resolve_epsg
 from lost_landscapes.utils.log_manager import log, set_request_id
 from lost_landscapes.utils.perf import new_profiler
 from lost_landscapes.workers.celery_app import app
+from lost_landscapes.workers.job_control import JobStopped, active_job, transition
 
 
 def _transform_outline(outline, transformer):
@@ -175,9 +176,7 @@ def run_detection(self, dem_path: str, derivative_paths: dict, pass_config_name:
              total_mb=round(total_bytes / 1e6, 1))
 
     # Run passes
-    config_path = Path(f"/app/configs/passes/{pass_config_name}.toml")
-    if not config_path.exists():
-        config_path = settings.data_dir.parent / f"configs/passes/{pass_config_name}.toml"
+    config_path = pass_config_path(pass_config_name)
 
     runner = PassRunner.from_toml(config_path)
     candidates = runner.run_on_array(dem, transform, crs_code, derivs)
@@ -247,7 +246,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
     This is what gets called when a user submits a job from the UI.
     Source resolution: bbox center → FCC reverse geocode → state → sources.
     """
-    from lost_landscapes.db.models import Job, JobStatus
+    from lost_landscapes.db.models import Job
     from lost_landscapes.ingest.manager import get_source
     set_request_id(job_id[:8] if job_id else "no-id")
     t0_pipeline = time.perf_counter()
@@ -257,23 +256,15 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
     def _update_job(status: str, progress: float, message: str = "", summary: dict | None = None, stage: str | None = None):
         async def _do():
             async with _async_session() as session:
-                job = await session.get(Job, UUID(job_id))
-                if job:
-                    job.status = JobStatus(status.lower())
-                    job.progress = progress
-                    if status in ("COMPLETED", "FAILED"):
-                        job.completed_at = datetime.now(UTC)
-                    if summary:
-                        job.result_summary = summary
-                    elif stage:
-                        # Merge stage into existing result_summary
-                        existing = job.result_summary or {}
-                        existing["stage"] = stage
-                        job.result_summary = existing
-                    if message and status == "FAILED":
-                        job.error_message = message
-                    await session.commit()
+                await transition(session, job_id, status, progress, message, summary, stage)
         asyncio.run(_do())
+
+    async def _checkpoint_async():
+        async with _async_session() as session:
+            await active_job(session, job_id)
+
+    def _checkpoint():
+        asyncio.run(_checkpoint_async())
 
     try:
         _update_job("RUNNING", 5, "Discovering tiles", stage="discovering")
@@ -316,25 +307,8 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         centroid = bbox.centroid
         tiles.sort(key=lambda t: t.bbox.centroid.distance(centroid))
 
-        # Clear ALL stale data in scan area — detections + processed tiles on disk
-        b = bbox.bounds
-        async def _clear_stale():
-            async with _async_session() as session:
-                from sqlalchemy import text
-                result = await session.execute(text("DELETE FROM detections WHERE ST_Within(geometry, ST_MakeEnvelope(:w, :s, :e, :n, 4326))"), {"w": b[0], "s": b[1], "e": b[2], "n": b[3]})
-                deleted = result.rowcount
-                await session.commit()
-                if deleted:
-                    log.info("stale_detections_cleared", count=deleted, bbox=[round(v, 4) for v in b])
-        asyncio.run(_clear_stale())
-        # Wipe processed tile dirs that will be re-downloaded (forces fresh processing)
-        import shutil
-        for tile in tiles[:tile_limit]:
-            stem = tile.filename.replace(".copc.laz", "").replace(".laz", "").replace(".las", "")
-            tile_dir = settings.processed_dir / stem
-            if tile_dir.exists():
-                shutil.rmtree(tile_dir, ignore_errors=True)
-                log.info("stale_tile_dir_cleared", dir=str(tile_dir))
+        # Preserve previous findings and terrain, even if this scan fails or is cancelled.
+        _checkpoint()
 
         source_name = source_used
         _update_job("RUNNING", 10, f"Downloading {len(tiles)} tiles", stage="downloading",
@@ -343,7 +317,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         with profiler.stage("tile_downloads", tile_limit=tile_limit) as ctx:
             dl_source_name = source_used
             source = get_source(dl_source_name)
-            dest = settings.raw_dir / dl_source_name
+            dest = settings.raw_dir / dl_source_name / job_id
 
             _dl_done = 0
             _dl_bytes = 0
@@ -355,6 +329,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                 async def _dl(tile, idx):
                     nonlocal _dl_done, _dl_bytes
                     async with sem:
+                        await _checkpoint_async()
                         t0 = time.perf_counter()
                         try:
                             path = await source.download_tile(tile, dest)
@@ -367,15 +342,19 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                             # Update job progress directly via async session (can't use _update_job here — it calls asyncio.run() which fails inside an existing event loop)
                             try:
                                 async with _async_session() as session:
-                                    job = await session.get(Job, UUID(job_id))
+                                    job = await active_job(session, job_id)
                                     if job:
                                         pct = 10 + (_dl_done / tile_limit) * 30
                                         job.progress = pct
                                         job.result_summary = {"stage": "downloading", "source": source_name, "download_mb": dl_so_far, "downloaded": _dl_done, "tile_limit": tile_limit, "tiles_done": _dl_done, "tiles_total": tile_limit, "detections_so_far": 0}
                                         await session.commit()
+                            except JobStopped:
+                                raise
                             except Exception as _prog_err:
                                 log.debug("download_progress_update_failed", tile=tile.filename, error=str(_prog_err)[:200])
                             return (str(path), size_bytes)
+                        except JobStopped:
+                            raise
                         except Exception as e:
                             _dl_done += 1
                             log.warning("tile_download_failed", tile=tile.filename, error=str(e))
@@ -416,9 +395,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         from lost_landscapes.detection.runner import PassRunner
         from lost_landscapes.processing.pipeline import ProcessingPipeline
 
-        config_path = Path(f"/app/configs/passes/{pass_config}.toml")
-        if not config_path.exists():
-            config_path = settings.data_dir.parent / f"configs/passes/{pass_config}.toml"
+        config_path = pass_config_path(pass_config)
         runner = PassRunner.from_toml(config_path)
 
         ft_map = {
@@ -439,6 +416,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         def _process_single_tile(i: int, tile_path: str) -> dict:
             """Process → detect → store → cleanup for one tile. Runs in a thread."""
             nonlocal total_detections, completed_tiles
+            _checkpoint()
             result = {"tile": tile_path, "index": i}
 
             # Process: PDAL → DEM → derivatives
@@ -446,7 +424,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
             tile_result = None
             try:
                 log.info("processing_tile", index=i, tile=Path(tile_path).name, size_mb=round(Path(tile_path).stat().st_size / 1e6, 1))
-                pipeline = ProcessingPipeline(output_dir=settings.processed_dir)
+                pipeline = ProcessingPipeline(output_dir=settings.processed_dir, namespace=f"scan-{job_id}-", checkpoint=_checkpoint)
                 input_path = Path(tile_path)
                 if input_path.suffix in (".laz", ".las"):
                     tile_result = pipeline.process_point_cloud(input_path)
@@ -468,12 +446,15 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                 except Exception:
                     log.info("tile_crs_details", tile=Path(tile_path).name, resolved_epsg=tile_result.crs, raw_epsg="unknown", is_compound=False)
                 log.info("processing_complete", index=i, tile=Path(tile_path).name, process_s=result["process_s"], derivatives=list(tile_result.derivative_paths.keys()), crs=tile_result.crs, dem=str(tile_result.dem_path))
+            except JobStopped:
+                raise
             except Exception as e:
                 log.error("process_tile_failed", tile=tile_path, error=str(e), exception=True)
                 result["error"] = f"process: {e}"
                 result["error_type"] = "process"
                 return result
 
+            _checkpoint()
             # Detect — with per-phase timing
             t0 = time.perf_counter()
             _timings = {}
@@ -497,6 +478,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                         log.warning("point_cloud_load_failed", error=str(_pc_err)[:200])
                 log.info("detection_starting", tile=Path(tile_path).stem, dem=str(tile_result.dem_path), crs=tile_result.crs, derivatives=list(tile_result.derivative_paths.keys()), has_point_cloud=_point_cloud is not None)
                 _t = time.perf_counter()
+                _checkpoint()
                 candidates = runner.run_on_dem(
                     tile_result.dem_path,
                     tile_result.derivative_paths,
@@ -577,6 +559,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                 async def _store():
                     stored = 0
                     async with _async_session() as session:
+                        await active_job(session, job_id)
                         for item in good_with_coords:
                             if len(item) == 3:
                                 c, lon, lat = item
@@ -596,7 +579,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                                 area_m2=c.morphometrics.get("area_m2"),
                                 circularity=c.morphometrics.get("circularity"),
                                 wall_slope_deg=c.morphometrics.get("wall_slope_deg"),
-                                source_passes=c.metadata if c.metadata else None,
+                                source_passes={**(c.metadata or {}), "job_id": job_id, "pass_config": pass_config},
                                 morphometrics={k: round(float(v), 4) if isinstance(v, (int, float)) else v for k, v in c.morphometrics.items()},
                             )
                             session.add(det)
@@ -619,6 +602,8 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                     total_detections += stored_count
                 # Per-tile quality report
                 log.info("tile_quality_report", tile=Path(tile_path).name, derivatives_ok=len(tile_result.derivative_paths), raw_candidates=len(candidates), filtered=len(good), stored=stored_count, crs=crs_code, overpass_status="ok" if good_with_coords else "skipped_or_empty")
+            except JobStopped:
+                raise
             except Exception as e:
                 _err_str = str(e)
                 _err_type = "crs_infinity" if "infinity" in _err_str else "detect_other"
@@ -684,6 +669,10 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
                             "tiles_total": len(downloaded),
                             "detections_so_far": total_detections,
                         })
+                    except JobStopped:
+                        for pending in futures:
+                            pending.cancel()
+                        raise
                     except Exception as e:
                         log.error("tile_thread_failed", index=idx, error=str(e), exception=True)
                         tile_results.append({"index": idx, "error": str(e)})
@@ -706,7 +695,8 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         elapsed_pipeline = round(time.perf_counter() - t0_pipeline, 2)
         log.info("pipeline_error_summary", job_id=job_id[:8], tiles_ok=tiles_ok, tiles_failed=tiles_failed, total_detections=total_detections, error_types=error_types if error_types else None)
         log.info("full_pipeline_complete", job_id=job_id[:8], elapsed_s=elapsed_pipeline, tiles_discovered=len(tiles), tiles_downloaded=len(downloaded), download_mb=dl_mb, total_detections=total_detections, tiles_ok=tiles_ok, tiles_failed=tiles_failed)
-        _update_job("COMPLETED", 100, summary={
+        _update_job("FAILED" if tiles_ok == 0 else "COMPLETED", 100,
+                    message="No tiles could be analyzed" if tiles_ok == 0 else "", summary={
             "tiles_discovered": len(tiles),
             "tiles_downloaded": len(downloaded),
             "download_mb": dl_mb,
@@ -717,10 +707,16 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
             "tile_errors": tile_errors if tile_errors else None,
             "profile": profile_summary,
         })
+    except JobStopped:
+        log.info("pipeline_stopped", job_id=job_id[:8])
+        return {"status": "stopped"}
     except Exception as e:
         elapsed_pipeline = round(time.perf_counter() - t0_pipeline, 2)
         log.error("full_pipeline_failed", job_id=job_id[:8], error=str(e)[:500], elapsed_s=elapsed_pipeline, exception=True)
-        _update_job("FAILED", 0, str(e)[:500])
+        try:
+            _update_job("FAILED", 0, str(e)[:500])
+        except JobStopped:
+            return {"status": "stopped"}
         raise
 
 

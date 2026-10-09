@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "dataset_id": "synthetic-point-contract",
+  "dataset_version": "1.0.0",
+  "manifest_sha256": "1a452880dc243b61e388116c304383310f5b306f6ac4bde8ebc42bd9522247a2",
+  "split": "test",
+  "families": [
+    "raised",
+    "depression"
+  ],
+  "algorithm": "synthetic-predictions",
+  "algorithm_version": "1",
+  "configuration": {
+    "note": "Handwritten software test output, not a detector run"
+  },
+  "predictions": [
+    {
+      "id": "hit",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0036,
+          40.4915
+        ]
+      },
+      "score": null
+    },
+    {
+      "id": "duplicate",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.00359,
+          40.4915
+        ]
+      },
+      "score": null
+    },
+    {
+      "id": "wrong-family",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0024,
+          40.4905
+        ]
+      },
+      "score": null
+    },
+    {
+      "id": "unresolved",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.003,
+          40.491
+        ]
+      },
+      "score": null
+    }
+  ]
+}

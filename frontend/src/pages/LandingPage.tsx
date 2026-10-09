@@ -45,7 +45,7 @@ export default function LandingPage() {
     setTerrainReady(false);
     setTargetViewState({ longitude: lon, latitude: lat, zoom: 14, pitch: 45, bearing: -15 });
     try {
-      const { job_id } = await startConsumerScan(lat, lon, 10);
+      const { job_id } = await startConsumerScan(lat, lon, 1.5);
       console.log('[lostlandscapes] Scan started, job:', job_id);
       setActiveJobId(job_id);
       setPhase('processing');
@@ -200,7 +200,7 @@ export default function LandingPage() {
               tilesDone={jobProgress.tilesDone}
               tilesTotal={jobProgress.tilesTotal}
               detectionsSoFar={jobProgress.detectionsSoFar}
-              error={jobProgress.status === 'FAILED' ? (jobProgress.error || 'Processing failed') : null}
+              error={jobProgress.status === 'FAILED' || jobProgress.status === 'CANCELLED' ? (jobProgress.error || 'Processing failed') : null}
               onRetry={() => {
                 setActiveJobId(null);
                 setPhase('splash');

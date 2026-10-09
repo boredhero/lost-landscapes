@@ -33,7 +33,7 @@ export default function PlaygroundPage() {
       bumpTileVersion();
       // Auto-dismiss after 4s
       setTimeout(() => setScanStatus('idle'), 4000);
-    } else if (jobProgress.status === 'FAILED') {
+    } else if (jobProgress.status === 'FAILED' || jobProgress.status === 'CANCELLED') {
       completionHandled.current = true;
       setScanError(jobProgress.error || 'Processing failed');
       setScanStatus('failed');
@@ -49,8 +49,8 @@ export default function PlaygroundPage() {
     const lonSpanKm = (bbox[2] - bbox[0]) * 111.32 * Math.cos(lat * Math.PI / 180);
     const radiusKm = Math.min(latSpanKm, lonSpanKm) / 2;
     // If viewport is too wide, ask user to zoom in
-    if (radiusKm > 10) {
-      setScanError('Zoom in a bit — the visible area is too large to scan. Try zoom 12 or higher.');
+    if (radiusKm > 2) {
+      setScanError('Zoom in a bit — the visible area is too large to scan. Choose an area under 4 km across.');
       setScanStatus('failed');
       setTimeout(() => setScanStatus('idle'), 5000);
       return;

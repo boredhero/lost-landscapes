@@ -1,0 +1,467 @@
+{
+  "schema_version": 1,
+  "dataset_id": "synthetic-point-contract",
+  "dataset_version": "1.0.0",
+  "purpose": "synthetic",
+  "description": "Invented examples near Pittsburgh coordinates. These are not surveyed archaeological sites or scientific accuracy evidence.",
+  "protocol": {
+    "id": "point-baseline-v1",
+    "evaluation_crs": "EPSG:32617",
+    "split_buffer_m": 100,
+    "point_tolerance_m": 10,
+    "matching_rationale": "Ten metres is an arbitrary test tolerance, not a calibrated scientific threshold.",
+    "split_locked_on": "2026-10-08",
+    "split_locked_by": "synthetic-fixture",
+    "split_rationale": "Separate invented regions exercise split validation; real surveys require independent design."
+  },
+  "surveys": [
+    {
+      "id": "synthetic-survey",
+      "title": "Invented survey footprint",
+      "source": "synthetic://benchmark-v1",
+      "content_sha256": "8dffffae5c7f288f15c84eef41f4c99bc1f6e21559c6817c1fb29d998e9fe9db",
+      "license": "Synthetic software test fixture, repository license",
+      "acquired_on": null,
+      "resolution_m": 1,
+      "vertical_datum": null,
+      "footprint": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.03,
+              40.48
+            ],
+            [
+              -79.99,
+              40.48
+            ],
+            [
+              -79.99,
+              40.51
+            ],
+            [
+              -80.03,
+              40.51
+            ],
+            [
+              -80.03,
+              40.48
+            ]
+          ]
+        ]
+      }
+    }
+  ],
+  "regions": [
+    {
+      "id": "train",
+      "independence_group": "train",
+      "split": "train",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.02,
+              40.49
+            ],
+            [
+              -80.018,
+              40.49
+            ],
+            [
+              -80.018,
+              40.492
+            ],
+            [
+              -80.02,
+              40.492
+            ],
+            [
+              -80.02,
+              40.49
+            ]
+          ]
+        ]
+      },
+      "survey_ids": [
+        "synthetic-survey"
+      ],
+      "reviews": [
+        {
+          "family": "raised",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        },
+        {
+          "family": "depression",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "independence_group": "validation",
+      "split": "validation",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.012,
+              40.49
+            ],
+            [
+              -80.01,
+              40.49
+            ],
+            [
+              -80.01,
+              40.492
+            ],
+            [
+              -80.012,
+              40.492
+            ],
+            [
+              -80.012,
+              40.49
+            ]
+          ]
+        ]
+      },
+      "survey_ids": [
+        "synthetic-survey"
+      ],
+      "reviews": [
+        {
+          "family": "raised",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        },
+        {
+          "family": "depression",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test",
+      "independence_group": "test",
+      "split": "test",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -80.004,
+              40.49
+            ],
+            [
+              -80.00200000000001,
+              40.49
+            ],
+            [
+              -80.00200000000001,
+              40.492
+            ],
+            [
+              -80.004,
+              40.492
+            ],
+            [
+              -80.004,
+              40.49
+            ]
+          ]
+        ]
+      },
+      "survey_ids": [
+        "synthetic-survey"
+      ],
+      "reviews": [
+        {
+          "family": "raised",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        },
+        {
+          "family": "depression",
+          "completeness": "exhaustive",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": "train-raised",
+      "feature_id": "train-raised",
+      "region_id": "train",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.019,
+          40.491
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "present",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "validation-depression",
+      "feature_id": "validation-depression",
+      "region_id": "validation",
+      "family": "depression",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.011,
+          40.491
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "present",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "test-raised-a",
+      "feature_id": "test-raised-a",
+      "region_id": "test",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0036,
+          40.4915
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "present",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "test-raised-b",
+      "feature_id": "test-raised-b",
+      "region_id": "test",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0024,
+          40.4915
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "present",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "test-depression",
+      "feature_id": "test-depression",
+      "region_id": "test",
+      "family": "depression",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0024,
+          40.4905
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "present",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "test-unresolved",
+      "feature_id": "test-unresolved",
+      "region_id": "test",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.003,
+          40.491
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "uncertain",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    },
+    {
+      "id": "test-hard-negative",
+      "feature_id": "test-hard-negative",
+      "region_id": "test",
+      "family": "raised",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -80.0036,
+          40.4905
+        ]
+      },
+      "reviews": [
+        {
+          "revision": 1,
+          "status": "absent",
+          "reviewer": "synthetic-fixture",
+          "reviewed_on": "2026-10-08",
+          "evidence": [
+            {
+              "reference": "synthetic://benchmark-v1",
+              "description": "Invented geometry for software testing; not a real site or review."
+            }
+          ],
+          "observation": "Invented point used to exercise evaluation accounting.",
+          "interpretation": null,
+          "visibility": "unknown",
+          "interpretation_confidence": "unknown",
+          "dating_evidence": null
+        }
+      ]
+    }
+  ]
+}

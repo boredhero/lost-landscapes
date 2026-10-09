@@ -19,7 +19,8 @@
   box-sizing: border-box;
 }
 .landscape-app button,
-.landscape-app input {
+.landscape-app input,
+.landscape-app select {
   font: inherit;
 }
 .landscape-app button {
@@ -34,7 +35,9 @@
 }
 .landscape-app button:focus-visible,
 .landscape-app a:focus-visible,
-.landscape-app input:focus-visible {
+.landscape-app input:focus-visible,
+.landscape-app select:focus-visible,
+.landscape-app summary:focus-visible {
   outline: 3px solid #ba782b;
   outline-offset: 3px;
 }
@@ -317,6 +320,8 @@
   z-index: 4;
   display: flex;
   flex-direction: column;
+  max-height: calc(100dvh - 230px);
+  overflow-y: auto;
   align-items: center;
   padding: 5px;
   background: var(--paper);
@@ -325,6 +330,7 @@
   box-shadow: 0 3px 16px #132d2520;
 }
 .map-tools button {
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   width: 37px;
@@ -354,6 +360,64 @@
   right: 90px;
   width: 280px;
 }
+.terrain-layer-picker {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.terrain-layer-picker legend {
+  font-size: 12px;
+  font-weight: 650;
+  margin-bottom: 9px;
+}
+.terrain-layer-picker label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.terrain-layer-picker label:has(input:checked) {
+  background: #e4e9dc;
+  border-color: #647469;
+}
+.terrain-layer-picker input { accent-color: var(--ink); }
+.terrain-select { display: grid; gap: 8px; font-size: 12px; }
+.terrain-select select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+.terrain-select .muted { margin: 0; }
+.terrain-provenance { font-size: 11px; color: var(--muted); }
+.terrain-provenance summary { cursor: pointer; padding: 10px 0; color: var(--ink); }
+.terrain-source { border-top: 1px solid var(--line); padding-top: 10px; }
+.terrain-source strong { overflow-wrap: anywhere; font-weight: 500; }
+.terrain-provenance p { margin: 8px 0; }
+.terrain-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 7px;
+  font-size: 9px;
+}
+.terrain-legend span:last-child { text-align: right; }
+.legend-ramp { grid-column: 1 / -1; height: 6px; border: 1px solid #647469; }
+.legend-slope .legend-ramp { background: linear-gradient(to right, white, black); }
+.legend-hillshade .legend-ramp { background: linear-gradient(to right, black, white); }
+.legend-svf .legend-ramp, .legend-openness-positive .legend-ramp { background: linear-gradient(to right, black, white); }
+.legend-vat .legend-ramp { background: linear-gradient(to right, black, white); }
+.legend-openness-negative .legend-ramp { background: linear-gradient(to right, white, black); }
+.legend-local-relief .legend-ramp { background: linear-gradient(to right, #2c70a8, #f4f0e2, #c25723); }
 .landscape-panel h2 {
   font:
     normal 29px/1.2 Georgia,
@@ -541,7 +605,7 @@
 }
 .comparison-control {
   position: absolute;
-  bottom: 104px;
+  bottom: 140px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -555,6 +619,9 @@
   width: 270px;
   font-size: 11px;
   box-shadow: 0 4px 20px #1b322626;
+}
+.landscape-app:has(.comparison-control) .landscape-panel {
+  max-height: calc(100dvh - 300px);
 }
 .comparison-control input {
   min-width: 0;
@@ -821,8 +888,11 @@
     bottom: 96px;
   }
   .comparison-control {
-    bottom: 100px;
+    bottom: 140px;
     width: 240px;
+  }
+  .landscape-app:has(.comparison-control) .landscape-panel {
+    max-height: calc(100dvh - 380px);
   }
   .comparison-caption {
     top: 176px;
@@ -856,3 +926,21 @@
     animation: none;
   }
 }
+
+.notebook-panel { max-height: calc(100dvh - 185px); overflow-y: auto; }
+.notebook-panel label { display: block; margin: 12px 0; font-size: 13px; }
+.notebook-panel input, .notebook-panel textarea, .notebook-panel select { display: block; width: 100%; box-sizing: border-box; margin-top: 5px; padding: 8px; border: 1px solid #bec4b1; border-radius: 5px; background: #f4f3e9; color: #243a2c; }
+.notebook-panel textarea { min-height: 75px; resize: vertical; }
+.notebook-panel button, .drawing-bar button { border: 1px solid #a8b09c; border-radius: 5px; padding: 8px; background: #e2e5d5; color: #243a2c; cursor: pointer; }
+.notebook-panel button:disabled { opacity: .5; cursor: default; }
+.notebook-panel button[aria-pressed="true"] { background: #b8c7a7; }
+.notebook-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.finding-list { display: grid; gap: 5px; max-height: 160px; overflow-y: auto; }
+.finding-list button { text-align: left; }
+.elevation-profile svg { width: 100%; background: #e5e8dc; }
+.elevation-profile p { overflow-wrap: anywhere; }
+.drawing-bar { position: absolute; z-index: 8; top: 135px; left: 20px; right: 75px; padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: #f4f3e9; border-radius: 8px; }
+
+.context-links { display: flex; flex-wrap: wrap; gap: 12px; }
+.context-panel a { color: #31533b; text-underline-offset: 3px; }
+.context-panel input[type="range"] { padding: 0; }

@@ -33,7 +33,7 @@ jobs:
       - name: Deployment script syntax
         run: bash -n scripts/deploy_host.sh
       - name: Python lint
-        run: uvx ruff==0.15.7 check src tests scripts/import_study_area.py scripts/prepare_landscape.py
+        run: uvx ruff==0.15.7 check src tests scripts/import_study_area.py scripts/prepare_landscape.py scripts/generate_terrain_reference.py scripts/benchmark_terrain.py scripts/check_context_sources.py
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -43,6 +43,9 @@ jobs:
         working-directory: frontend
       - name: Frontend lint (zero warnings)
         run: npm run lint -- --max-warnings=0
+        working-directory: frontend
+      - name: Investigation contracts
+        run: npm test
         working-directory: frontend
       - name: TypeScript
         run: npx tsc -b --pretty false

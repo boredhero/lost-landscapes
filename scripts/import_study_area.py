@@ -18,11 +18,28 @@ def main():
     parser.add_argument("--name", required=True)
     parser.add_argument("--source", required=True, help="Dataset attribution and acquisition year")
     parser.add_argument("--description", default="Explore the landforms in this LiDAR study area.")
+    parser.add_argument(
+        "--survey-id", help="Verified common acquisition/processing group for neighbor joins"
+    )
+    parser.add_argument(
+        "--vertical-datum", help="Verified vertical reference shared by this survey (no conversion)"
+    )
+    parser.add_argument(
+        "--elevation-units",
+        choices=["m"],
+        help="Declare metre elevations if band units are missing; does not convert values",
+    )
     parser.add_argument("--data-dir", type=Path, default=Path("data"))
     args = parser.parse_args()
     slug = re.sub(r"[^a-z0-9]+", "-", args.name.lower()).strip("-")
     if not slug:
         parser.error("Name must contain letters or numbers")
+    if bool(args.survey_id) != bool(args.vertical_datum):
+        parser.error("--survey-id and --vertical-datum must be supplied together")
+    if any(
+        value is not None and not value.strip() for value in (args.survey_id, args.vertical_datum)
+    ):
+        parser.error("Survey ID and vertical datum must not be blank")
     # Validate every input before copying anything.
     inputs = []
     for source in args.dem:
@@ -33,9 +50,32 @@ def main():
                 )
             if abs(src.crs.linear_units_factor[1] - 1.0) > 0.001:
                 parser.error(f"{source}: convert horizontal coordinates to meters before importing")
+            if args.elevation_units and (src.units[0] or "").strip().lower() not in (
+                "",
+                "m",
+                "metre",
+                "meter",
+                "metres",
+                "meters",
+            ):
+                parser.error(
+                    f"{source}: convert elevation values to metres before declaring metre units"
+                )
+            for key, value in (
+                ("LL_SURVEY_ID", args.survey_id),
+                ("LL_VERTICAL_DATUM", args.vertical_datum),
+            ):
+                if value and src.tags().get(key, value.strip()).strip() != value.strip():
+                    parser.error(f"{source}: supplied {key} conflicts with existing metadata")
             inputs.append(
                 (source, transform_bounds(src.crs, "EPSG:4326", *src.bounds), abs(src.res[0]))
             )
+    for index in range(len(inputs)):
+        destination = (
+            args.data_dir / "processed" / f"{slug}-{index:03d}" / f"{slug}-{index:03d}_dem.tif"
+        )
+        if destination.exists():
+            parser.error(f"{destination} already exists; use a new area name for a new import")
     bounds = []
     for index, (source, extent, resolution) in enumerate(inputs):
         folder = args.data_dir / "processed" / f"{slug}-{index:03d}"
@@ -44,7 +84,19 @@ def main():
         if destination.exists():
             parser.error(f"{destination} already exists; use a new area name for a new import")
         shutil.copy2(source, destination)
+        # External masks and auxiliary metadata are part of the measured source.
+        for suffix in (".msk", ".aux.xml"):
+            sidecar = Path(str(source) + suffix)
+            if sidecar.exists():
+                shutil.copy2(sidecar, Path(str(destination) + suffix))
         with rasterio.open(destination, "r+") as dst:
+            if args.survey_id:
+                dst.update_tags(
+                    LL_SURVEY_ID=args.survey_id.strip(),
+                    LL_VERTICAL_DATUM=args.vertical_datum.strip(),
+                )
+            if args.elevation_units:
+                dst.set_band_unit(1, "m")
             factors = [
                 factor for factor in [2, 4, 8, 16] if min(dst.width, dst.height) // factor >= 16
             ]

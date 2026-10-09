@@ -18,6 +18,75 @@ detect or verify archaeological ruins.
 The original specialist interface remains at `/playground`, loaded separately.
 The default preview works without PostGIS, Redis, or a detection worker.
 
+### Terrain inspection views
+
+Open **Terrain controls** to switch between the default Landscape view,
+Slope, Local relief, and Directional light. Local relief shows signed elevation
+relative to a square neighborhood mean, with 10, 25, or 50 metre half-widths
+(rounded up to source cells). Blue indicates lower ground and orange higher
+ground; the fixed colour scale saturates at −2/+2 m. Slope uses a fixed
+0–60° scale. Directional light offers eight compass directions at 45° altitude.
+These are visualization aids, not archaeological classifications.
+
+**Sky-view factor**, **Positive openness** and **Negative openness** inspect the
+surrounding horizon in 16 directions, using 10/25/50 m search radii. They require
+zoom 16 or closer and bounded native support. Openness is displayed over 60–120°,
+with negative openness using reversed shading; flat ground is 90°. SVF is shown
+over 0–1. See [advanced terrain methods and reference checks](docs/advanced-terrain.md).
+
+**Archaeological topography (VAT)** blends hillshade, slope, positive openness
+and SVF using fixed general-terrain settings. It shares the horizon radius and
+zoom limits; its brightness is a visual composite, not a detection score.
+
+Inspection layers calculate on the native DEM grid before resampling for the
+map. They use only eligible local north-up projected metre rasters with source
+spacing at most 5 m, and are available at zoom 14–18 (16–18 for horizon views; higher map zooms enlarge
+the final tile). Exaggerating the 3D view does not change their calculations.
+The data panel reports source eligibility, native spacing, effective neighborhood
+size and elevation units. Undeclared elevation units are explicitly assumed to
+be metres; acquisition dates and vertical references remain unverified.
+
+Complete neighborhoods are required. Neighboring rasters can supply measured
+cells across file boundaries when their declared survey ID, vertical datum,
+metre elevation units, CRS, spacing and pixel alignment agree. Missing metadata
+or incompatible sources leave unsupported edges blank. No elevations are
+interpolated across missing ground, and no vertical-datum conversion is attempted.
+Overlaps use deterministic source priority after applying band scale/offset.
+Each native working window is capped at four million cells, with at most 32
+contributing files. Per-request accounting bounds both native reads (including
+overlaps) and processing windows to eight million cells; a neighborhood that
+exceeds its budget is skipped rather than partially used or silently coarsened.
+Regional fallback elevation never
+enters these inspection calculations. Tiles are cached by source, algorithm and
+visualization settings.
+
+For a new import, declare verified common survey provenance with
+`--survey-id` and `--vertical-datum` on `scripts/import_study_area.py`. If the
+source omits elevation units, `--elevation-units m` explicitly declares metre
+elevations; it does not convert them. These options write `LL_SURVEY_ID`,
+`LL_VERTICAL_DATUM` and band-unit metadata to the imported copies. Conflicting
+existing declarations are rejected, and external masks/auxiliary metadata are
+preserved. Only group files from the same verified acquisition/processing survey.
+Existing imports with unknown provenance remain usable individually; they are
+not automatically declared compatible. The source panel explains eligibility.
+
+The [staged development plan](docs/development-plan.md) covers remaining terrain
+views, measurements, investigations, historical context, separate detector
+families, scientific evaluation and locally trained models. Stage 1's bounded
+terrain views and reference/performance checks are implemented; later product
+stages and production release remain pending.
+
+The [evaluation protocol](docs/evaluation-protocol.md) defines versioned survey,
+region, label and prediction contracts. An offline validator checks evidence and
+spatial splits; a bounded point baseline counts misses, duplicates and false
+positives. Its included examples are synthetic and do not measure real-world
+detection accuracy.
+
+```sh
+uv run --no-sync python -m lost_landscapes.benchmark validate tests/fixtures/benchmark/synthetic-manifest.json
+uv run --no-sync python -m lost_landscapes.benchmark score-points tests/fixtures/benchmark/synthetic-manifest.json tests/fixtures/benchmark/synthetic-predictions.json
+```
+
 ## Terrain and performance
 
 The new `/api/landscape` renderer reads intersecting LiDAR DEMs into 512-pixel
@@ -50,11 +119,7 @@ Python dependencies use `uv`; geospatial processing also needs PDAL, GDAL and
 WhiteboxTools. The Docker image supplies native tools. For a local environment:
 
 ```sh
-# The repository keeps a version placeholder, as in the upstream build.
-sed -i 's/__LOSTLANDSCAPES_VERSION__/0.9.2/' pyproject.toml
-uv sync --extra dev
-# Restore the placeholder after installing; uv run --no-sync uses the environment.
-git restore pyproject.toml
+uv sync --frozen --extra dev --python 3.12
 uv run --no-sync uvicorn lost_landscapes.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -169,3 +234,14 @@ America/New_York. Minor/patch updates are grouped per ecosystem; major updates
 remain separate for review. Version-update PRs target master and run the same
 CI checks. This schedule activates once .github/dependabot.yml reaches master.
 Security updates are separate from this weekly version-update schedule.
+
+Investigations now support device-local points, lines, areas, notes, evidence references,
+review states, GeoJSON import/export and native elevation profiles with CSV export.
+The automatic shortlist saves prediction snapshots into the same notebook. Scan
+status and cooperative cancellation preserve previous results. See
+[Investigations and measurements](docs/investigations.md) for usage and limits.
+
+The **Historical evidence** panel adds optional dated maps/aerials, geology and
+mining context with opacity, coverage and attribution. Its source registry and
+ArcGIS/XYZ/WMS adapters are designed for US and European expansion; current
+catalog entries are regional pilot coverage. See [source architecture and research](docs/context-sources.md).

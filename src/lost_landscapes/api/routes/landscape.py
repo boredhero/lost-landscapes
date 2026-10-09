@@ -31,13 +31,15 @@ from rasterio.warp import Resampling, reproject, transform_bounds
 from scipy.ndimage import distance_transform_edt
 from starlette.concurrency import run_in_threadpool
 
+from lost_landscapes import terrain_visualization as visualization
 from lost_landscapes.config import settings
+from lost_landscapes.measurements import MeasurementRequest, measure
 
 router = APIRouter(prefix="/landscape", tags=["landscape"])
 SIZE = 512
 PAD = 8
 WORLD = 20037508.342789244
-RENDER_VERSION = "v2"
+RENDER_VERSION = "v2-" + visualization.VERSION
 _pool = ThreadPoolExecutor(max_workers=settings.terrain_workers)
 _background_pool = ThreadPoolExecutor(max_workers=6)
 _http = httpx.Client(timeout=8, limits=httpx.Limits(max_connections=6, max_keepalive_connections=6))
@@ -65,6 +67,11 @@ def inventory() -> tuple[str, list[Dem]]:
         for path in sorted(settings.processed_dir.glob("*/*_dem.tif")):
             stat = path.stat()
             digest.update(f"{path.relative_to(settings.processed_dir)}:{stat.st_size}:{stat.st_mtime_ns}".encode())
+            for suffix in (".msk", ".aux.xml"):
+                sidecar = Path(str(path) + suffix)
+                if sidecar.exists():
+                    sidecar_stat = sidecar.stat()
+                    digest.update(f"{suffix}:{sidecar_stat.st_size}:{sidecar_stat.st_mtime_ns}".encode())
             with rasterio.open(path) as src:
                 if not src.crs:
                     continue
@@ -227,13 +234,41 @@ def shaded_relief(elevation: np.ndarray, z: int, y: int) -> bytes:
     return out.getvalue()
 
 
-def render_tile(layer: str, z: int, x: int, y: int) -> bytes:
+def validate_visualization(layer: str, radius_m: int, azimuth: int) -> None:
+    if radius_m not in visualization.RADII or azimuth not in visualization.AZIMUTHS:
+        raise ValueError("Unsupported radius or azimuth")
+    if layer not in ("terrain", "relief", *visualization.LAYERS):
+        raise ValueError("Unsupported layer")
+
+
+def tile_cache_path(revision: str, layer: str, z: int, x: int, y: int,
+                    radius_m: int = 25, azimuth: int = 315) -> Path:
+    variant = layer
+    if layer in visualization.LAYERS:
+        variant = f"{layer}-{visualization.VERSION}-r{radius_m}-a{azimuth}"
+    return settings.data_dir / "landscape-cache" / revision / variant / str(z) / str(x) / f"{y}.png"
+
+
+def render_tile(layer: str, z: int, x: int, y: int, radius_m: int = 25, azimuth: int = 315) -> bytes:
+    validate_visualization(layer, radius_m, azimuth)
     revision, records = inventory()
-    path = settings.data_dir / "landscape-cache" / revision / layer / str(z) / str(x) / f"{y}.png"
+    return _render_cached_tile(revision, records, layer, z, x, y, radius_m, azimuth)
+
+
+def _render_cached_tile(revision, records, layer, z, x, y, radius_m=25, azimuth=315):
+    # Keep the source snapshot and cache revision together throughout the render.
+    path = tile_cache_path(revision, layer, z, x, y, radius_m, azimuth)
     # Striped locks bound lock memory and collapse identical concurrent requests.
     with _locks[hash(str(path)) % len(_locks)]:
         if path.exists():
             return path.read_bytes()
+        if layer in visualization.LAYERS:
+            if z < visualization.min_zoom(layer):
+                data = visualization.colorize(np.full((SIZE, SIZE), np.nan), layer)
+            else:
+                data = visualization.render(records, tile_bounds(z, x, y), layer, radius_m, azimuth)
+            atomic_write(path, data)
+            return data
         local = read_elevation(z, x, y, records)
         if layer == "relief":
             data = shaded_relief(local, z, y)
@@ -269,23 +304,33 @@ def catalog():
         "tile_count": len(records),
         "analysis_enabled": settings.enable_analysis,
         "coverage": [record.geographic_bounds for record in records],
+        "visualizations": visualization.metadata(records),
     }
 
 
 @router.get("/tiles/{layer}/{z}/{x}/{y}.png")
-async def tile(layer: str, z: int, x: int, y: int, v: str = Query("")):
+async def tile(layer: str, z: int, x: int, y: int, v: str = Query(""),
+               radius_m: int = Query(25), azimuth: int = Query(315)):
     if (
-        layer not in ("terrain", "relief")
+        layer not in ("terrain", "relief", *visualization.LAYERS)
         or not (0 <= z <= 18)
         or not (0 <= x < 2**z and 0 <= y < 2**z)
     ):
         raise HTTPException(404, "Tile outside supported range")
+    try:
+        validate_visualization(layer, radius_m, azimuth)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     revision, records = await run_in_threadpool(inventory)
-    path = settings.data_dir / "landscape-cache" / revision / layer / str(z) / str(x) / f"{y}.png"
+    path = tile_cache_path(revision, layer, z, x, y, radius_m, azimuth)
     loop = asyncio.get_running_loop()
     try:
         if path.exists():
             data = await run_in_threadpool(path.read_bytes)
+        elif layer in visualization.LAYERS:
+            data = await loop.run_in_executor(
+                _pool, _render_cached_tile, revision, records, layer, z, x, y, radius_m, azimuth
+            )
         else:
             local = await loop.run_in_executor(_pool, read_elevation, z, x, y, records)
             if layer == "relief":
@@ -304,3 +349,12 @@ async def tile(layer: str, z: int, x: int, y: int, v: str = Query("")):
         raise HTTPException(503, "Terrain temporarily unavailable") from exc
     cache = "public, max-age=31536000, immutable" if v == revision else "public, max-age=15"
     return Response(data, media_type="image/png", headers={"Cache-Control": cache})
+
+
+@router.post("/measure")
+async def measure_geometry(body: MeasurementRequest):
+    revision, records = await run_in_threadpool(inventory)
+    try:
+        return await asyncio.get_running_loop().run_in_executor(_pool, measure, body, revision, records)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc

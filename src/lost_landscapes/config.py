@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Data storage root (on remote machine)
     data_dir: Path = Path("data")
 
+    # Optional operator-curated context catalog; the bundled registry is region-independent.
+    context_sources_path: Path | None = None
+
     # Processing defaults
     dem_resolution_m: float = 1.0
     default_crs: int = 32617  # UTM zone 17N (covers western PA)

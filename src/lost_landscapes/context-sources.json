@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "usgs-pittsburgh-1904",
+      "name": "Pittsburgh topographic map",
+      "category": "historical-map",
+      "region": "Pittsburgh quadrangle, Pennsylvania",
+      "country": "US",
+      "date_label": "1904 map / survey \u00b7 1957 imprint",
+      "date_kind": "map-and-imprint",
+      "verified_at": "2026-10-08",
+      "revision": "2026-10-08",
+      "attribution": "USGS Historical Topographic Map Collection, Esri",
+      "source_url": "https://www.usgs.gov/tools/topoview",
+      "bounds": [
+        -80,
+        40.25,
+        -79.75,
+        40.5
+      ],
+      "adapter": {
+        "kind": "arcgis-image",
+        "url": "https://historical1.arcgis.com/arcgis/rest/services/USGS_Historical_Topographic_Maps/ImageServer",
+        "raster_ids": [
+          135419
+        ]
+      },
+      "description": "A single dated 1:62,500 USGS sheet, locked to raster 135419 rather than blended with other years.",
+      "limitations": "Map and imprint dates differ. Georeferencing and original map scale limit alignment with individual terrain features.",
+      "min_zoom": 10,
+      "max_zoom": 18,
+      "terms_url": "https://links.esri.com/agol_tou"
+    },
+    {
+      "id": "pittsburgh-aerial-1939",
+      "name": "Pittsburgh aerial photographs",
+      "category": "historical-aerial",
+      "region": "Pittsburgh area, Pennsylvania",
+      "country": "US",
+      "date_label": "Flight completed May 1939",
+      "date_kind": "flight",
+      "verified_at": "2026-10-08",
+      "revision": "2026-10-08",
+      "attribution": "USDA AAA / Abrams Aerial Survey / Penn Pilot / Esri",
+      "source_url": "https://www.arcgis.com/home/item.html?id=eeee01ca1f4244d6948e24f323fb5334",
+      "bounds": [
+        -80.20781471393163,
+        40.313899428337805,
+        -79.85251378988936,
+        40.54861848815262
+      ],
+      "adapter": {
+        "kind": "xyz",
+        "url": "https://tiles.arcgis.com/tiles/jIL9msH9OI208GCb/arcgis/rest/services/Pittsburgh1939/MapServer/tile/{z}/{y}/{x}"
+      },
+      "description": "Historical aerial photographs georeferenced and hosted by Esri from Penn Pilot originals.",
+      "limitations": "Coverage is regional and alignment varies. Imagery is viewed from the provider; notebook export records source references, not imagery files.",
+      "min_zoom": 11,
+      "max_zoom": 19,
+      "terms_url": "https://links.esri.com/agol_tou"
+    },
+    {
+      "id": "allegheny-aerial-2010",
+      "name": "Allegheny County orthophotography",
+      "category": "historical-aerial",
+      "region": "Allegheny County, Pennsylvania",
+      "country": "US",
+      "date_label": "2010 publication \u00b7 capture date unspecified",
+      "date_kind": "publication",
+      "verified_at": "2026-10-08",
+      "revision": "2026-10-08",
+      "attribution": "Allegheny County GIS / PASDA",
+      "source_url": "https://www.pasda.psu.edu/uci/DataSummary.aspx?dataset=1209",
+      "bounds": [
+        -80.413955,
+        40.153982,
+        -79.641264,
+        40.717648
+      ],
+      "adapter": {
+        "kind": "arcgis-map",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/AlleghenyCountyImagery2010/MapServer",
+        "layers": "1"
+      },
+      "description": "One-foot color orthophotography published in 2010; the imagery layer is distinct from its tile index.",
+      "limitations": "Publication year is not a verified capture date. County coverage only; informational/as-is provider conditions apply.",
+      "min_zoom": 10,
+      "max_zoom": 18,
+      "terms_url": "https://www.pasda.psu.edu/uci/FullMetadataDisplay.aspx?file=AlleghenyCountyImagery2010_TileIndex.xml"
+    },
+    {
+      "id": "pa-bedrock",
+      "name": "Pennsylvania bedrock geology",
+      "category": "geology",
+      "region": "Pennsylvania",
+      "country": "US",
+      "date_label": "1980 source map \u00b7 2001 digital revisions",
+      "date_kind": "map-and-revision",
+      "verified_at": "2026-10-08",
+      "revision": "2026-10-08",
+      "attribution": "PA DCNR / Pennsylvania Geological Survey",
+      "source_url": "https://maps.dcnr.pa.gov/publications/Default.aspx?id=712",
+      "bounds": [
+        -80.52,
+        39.72,
+        -74.69,
+        42.27
+      ],
+      "adapter": {
+        "kind": "arcgis-map",
+        "url": "https://www.gis.dcnr.state.pa.us/agsprod/rest/services/topo/DataSharing/MapServer",
+        "layers": "7"
+      },
+      "description": "Regional 1:250,000 bedrock formations, useful as geological context.",
+      "limitations": "Contacts may be displaced by hundreds of feet. This is not site-scale geology or a comprehensive soil/surficial map.",
+      "min_zoom": 6,
+      "max_zoom": 18,
+      "legend_url": "https://www.gis.dcnr.state.pa.us/agsprod/rest/services/topo/DataSharing/MapServer/legend",
+      "terms_url": "https://www.pasda.psu.edu/uci/FullMetadataDisplay.aspx?file=dcnr_bedrockgeology2001.xml"
+    },
+    {
+      "id": "pa-abandoned-mines",
+      "name": "Pennsylvania abandoned mine inventory",
+      "category": "mining",
+      "region": "Pennsylvania",
+      "country": "US",
+      "date_label": "Live inventory \u00b7 metadata checked October 2026",
+      "date_kind": "inventory-check",
+      "verified_at": "2026-10-08",
+      "revision": "2026-10-08",
+      "attribution": "Pennsylvania Department of Environmental Protection, via PASDA",
+      "source_url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/DEP/MapServer/2",
+      "bounds": [
+        -80.51942282514666,
+        39.72040795989838,
+        -75.44420867093301,
+        41.91099333055999
+      ],
+      "adapter": {
+        "kind": "arcgis-map",
+        "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/DEP/MapServer",
+        "layers": "2"
+      },
+      "description": "Recorded abandoned-mine problem-area boundaries. Provider layer was labeled AML Inventory Sites 2026_10 when checked.",
+      "limitations": "Incomplete inventory, not underground mine outlines. Excludes active mines and permitted mines closed after 1982. Blank areas do not establish absence of mining; feature mining dates vary.",
+      "min_zoom": 6,
+      "max_zoom": 18,
+      "legend_url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/DEP/MapServer/legend"
+    }
+  ]
+}

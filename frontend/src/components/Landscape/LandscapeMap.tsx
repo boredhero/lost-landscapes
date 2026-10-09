@@ -12,6 +12,9 @@ import type {
 } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
 import type { Detection } from "../../types";
+import type { ContextSource } from "./contextLayers";
+import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
+import { terrainMinZoom, usesTerrainRadius } from "./terrainLayers";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type MapMode = "lidar" | "aerial" | "compare";
@@ -25,8 +28,19 @@ export interface CameraTarget {
   id: number;
 }
 interface Props {
+  contextSource?: ContextSource;
+  contextOpacity: number;
+  contextAttempt: number;
+  onContextError: () => void;
+  findings: GeoJSON.FeatureCollection;
+  drawing: boolean;
+  onDrawPoint: (point: number[]) => void;
+  onFinding: (id: string) => void;
   mode: MapMode;
   revision: string;
+  terrainLayer: TerrainLayer;
+  reliefRadius: ReliefRadius;
+  lightAzimuth: number;
   is3D: boolean;
   exaggeration: number;
   split: number;
@@ -48,11 +62,27 @@ const initial = {
   bearing: -25,
 };
 
-function style(aerial: boolean, revision: string): StyleSpecification {
+function style(
+  aerial: boolean, revision: string, terrainLayer: TerrainLayer = "relief",
+  reliefRadius: ReliefRadius = 25, lightAzimuth = 315,
+  contextSource?: ContextSource, contextOpacity = 0.55, contextAttempt = 0,
+): StyleSpecification {
   const suffix = `?v=${encodeURIComponent(revision)}`;
+  const derivative = terrainLayer !== "relief";
+  const parameters = usesTerrainRadius(terrainLayer) ? `&radius_m=${reliefRadius}`
+    : terrainLayer === "hillshade" ? `&azimuth=${lightAzimuth}` : "";
   return {
     version: 8,
     sources: {
+      ...(contextSource ? { 'context-overlay': {
+        type: 'raster' as const,
+        tiles: [contextSource.tile_url + (contextSource.tile_url.includes('?') ? '&' : '?') + `attempt=${contextAttempt}`],
+        tileSize: 256,
+        bounds: contextSource.bounds,
+        minzoom: contextSource.min_zoom,
+        maxzoom: contextSource.max_zoom,
+        attribution: contextSource.attribution,
+      } } : {}),
       terrain: {
         type: "raster-dem",
         tiles: [`/api/landscape/tiles/terrain/{z}/{x}/{y}.png${suffix}`],
@@ -63,8 +93,9 @@ function style(aerial: boolean, revision: string): StyleSpecification {
       },
       relief: {
         type: "raster",
-        tiles: [`/api/landscape/tiles/relief/{z}/{x}/{y}.png${suffix}`],
+        tiles: [`/api/landscape/tiles/${terrainLayer}/{z}/{x}/{y}.png${suffix}${parameters}`],
         tileSize: 512,
+        minzoom: derivative ? terrainMinZoom(terrainLayer) : 0,
         maxzoom: 18,
       },
       aerial: {
@@ -96,7 +127,7 @@ function style(aerial: boolean, revision: string): StyleSpecification {
             },
           ]
         : [
-            {
+            ...(!derivative ? [{
               id: "context-shade",
               type: "hillshade" as const,
               source: "terrain",
@@ -106,7 +137,7 @@ function style(aerial: boolean, revision: string): StyleSpecification {
                 "hillshade-highlight-color": "#e0e5cf",
                 "hillshade-illumination-anchor": "map" as const,
               },
-            },
+            }] : []),
             {
               id: "relief",
               type: "raster" as const,
@@ -117,6 +148,7 @@ function style(aerial: boolean, revision: string): StyleSpecification {
               },
             },
           ]),
+      ...(contextSource ? [{ id: 'context-overlay', type: 'raster' as const, source: 'context-overlay', paint: { 'raster-opacity': contextOpacity, 'raster-fade-duration': 0 } }] : []),
     ],
   };
 }
@@ -125,6 +157,9 @@ export default function LandscapeMap(props: Props) {
   const {
     mode,
     revision,
+    terrainLayer,
+    reliefRadius,
+    lightAzimuth,
     is3D,
     exaggeration,
     split,
@@ -141,8 +176,8 @@ export default function LandscapeMap(props: Props) {
   const map = useRef<MapRef>(null);
   const [camera, setCamera] = useState(initial);
   const baseStyle = useMemo(
-    () => style(mode === "aerial", revision),
-    [mode, revision],
+    () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt),
+    [mode, revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt],
   );
   const aerialStyle = useMemo(() => style(true, revision), [revision]);
   const terrain = useMemo(
@@ -215,6 +250,9 @@ export default function LandscapeMap(props: Props) {
     );
   }
   function click(event: MapLayerMouseEvent) {
+    if (props.drawing) { props.onDrawPoint([event.lngLat.lng, event.lngLat.lat]); return; }
+    const findingId = event.features?.find(f => f.properties?.findingId)?.properties?.findingId;
+    if (findingId) { props.onFinding(String(findingId)); return; }
     const id = event.features?.[0]?.properties?.id;
     const detection = detections.find((d) => d.id === id);
     if (detection) onSelect(detection);
@@ -235,9 +273,20 @@ export default function LandscapeMap(props: Props) {
         onMove={(event) => setCamera(event.viewState)}
         onMoveEnd={reportView}
         onClick={click}
-        interactiveLayerIds={["candidates"]}
-        onError={onTerrainError}
+        interactiveLayerIds={["candidates", "finding-points", "finding-lines", "finding-areas"]}
+        cursor={props.drawing ? "crosshair" : "grab"}
+        doubleClickZoom={!props.drawing}
+        onError={event => {
+          const sourceId = (event as unknown as { sourceId?: string }).sourceId;
+          if (sourceId === 'context-overlay') props.onContextError();
+          else onTerrainError();
+        }}
       >
+        <Source id="investigation-data" type="geojson" data={props.findings}>
+          <Layer id="finding-areas" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': '#efc578', 'fill-opacity': 0.2 }} />
+          <Layer id="finding-lines" type="line" filter={['!=', ['geometry-type'], 'Point']} paint={{ 'line-color': '#efc578', 'line-width': 3 }} />
+          <Layer id="finding-points" type="circle" filter={['==', ['geometry-type'], 'Point']} paint={{ 'circle-color': '#efc578', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#243a2c' }} />
+        </Source>
         <Source id="candidate-data" type="geojson" data={geojson}>
           <Layer
             id="candidate-halo"
