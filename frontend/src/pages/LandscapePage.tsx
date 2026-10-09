@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { ViewState } from "react-map-gl/maplibre";
 import LandscapeMap from "../components/Landscape/LandscapeMap";
-import { lightDirections, terrainLayers } from "../components/Landscape/terrainLayers";
+import { isHorizonLayer, lightDirections, terrainLayers, terrainLegend, terrainMinZoom, usesTerrainRadius } from "../components/Landscape/terrainLayers";
 import type { ReliefRadius, TerrainLayer } from "../components/Landscape/terrainLayers";
 import type {
   Bounds,
@@ -63,6 +63,7 @@ interface Catalog {
       vertical_datum?: string | null;
       mosaic_eligible?: boolean;
       mosaic_reason?: string | null;
+      horizon_radius_presets_m?: number[];
     }[];
   };
 }
@@ -188,6 +189,7 @@ export default function LandscapePage() {
   );
   const layerInfo = terrainLayers.find((layer) => layer.id === terrainLayer)!;
   const inspectingTerrain = terrainLayer !== "relief" && mode !== "aerial";
+  const minimumZoom = terrainMinZoom(terrainLayer);
   const currentArea = catalog.areas.find(({ bounds: [w, s, e, n] }) =>
     view.longitude >= w && view.longitude <= e && view.latitude >= s && view.latitude <= n,
   );
@@ -700,16 +702,18 @@ export default function LandscapePage() {
             ))}
           </fieldset>
           <p className="muted">{layerInfo.description}</p>
-          {terrainLayer === "local-relief" && (
+          {usesTerrainRadius(terrainLayer) && (
             <label className="terrain-select">
-              Neighborhood half-width
+              {isHorizonLayer(terrainLayer) ? "Search radius" : "Neighborhood half-width"}
               <select value={reliefRadius} onChange={(event) => {
                 setReliefRadius(Number(event.target.value) as ReliefRadius);
                 setTerrainError(false);
               }}>
                 {[10, 25, 50].map((radius) => <option key={radius} value={radius}>{radius} m</option>)}
               </select>
-              <span className="muted">A square neighborhood extends this far in each direction, rounded up to whole source cells.</span>
+              <span className="muted">{isHorizonLayer(terrainLayer)
+                ? "16 directions on the source grid. Radius rounds up to native spacing; sampled cell centers can extend slightly beyond it. Complete surrounding data is required."
+                : "A square neighborhood extends this far in each direction, rounded up to whole source cells."}</span>
             </label>
           )}
           {terrainLayer === "hillshade" && (
@@ -725,10 +729,10 @@ export default function LandscapePage() {
             </label>
           )}
           {terrainLayer !== "relief" && (
-            <p className="muted">Calculated on the source grid. Blank areas lack supported data or complete neighborhoods, or exceed the processing limit. Zoom 14 or closer is required.</p>
+            <p className="muted">Calculated on the source grid. Blank areas lack supported data or complete neighborhoods, or exceed the processing limit. Zoom {minimumZoom} or closer is required.</p>
           )}
-          {terrainLayer !== "relief" && view.zoom < 14 && (
-            <button className="primary-button" onClick={() => move({ zoom: 15 })}>Zoom to detail</button>
+          {terrainLayer !== "relief" && view.zoom < minimumZoom && (
+            <button className="primary-button" onClick={() => move({ zoom: minimumZoom + 1 })}>Zoom to detail</button>
           )}
           <div className="panel-divider" />
           <label className="range-label">
@@ -792,6 +796,7 @@ export default function LandscapePage() {
                   ? "Neighbor joining available when projection, spacing and pixel alignment match."
                   : `Neighbor joining unavailable: ${source.mosaic_reason}`}</p>}
                 {source.resolution_m && terrainLayer === "local-relief" && <p>Effective half-width: {source.resolution_m.map((value) => Number((Math.ceil(reliefRadius / value) * value).toFixed(3))).join(" × ")} m</p>}
+                {isHorizonLayer(terrainLayer) && <p>Supported horizon radii: {source.horizon_radius_presets_m?.join(", ") || "None"} m. Searches are capped at 128 native cells.</p>}
                 {!source.eligible && <p>Inspection unavailable: {source.reason}</p>}
               </div>
             ))}
@@ -824,13 +829,13 @@ export default function LandscapePage() {
               {loadingTiles
                 ? "Loading terrain…"
                 : inspectingTerrain
-                  ? view.zoom < 14 ? "Zoom in for terrain detail" : layerInfo.label
+                  ? view.zoom < minimumZoom ? "Zoom in for terrain detail" : layerInfo.label
                 : insideCoverage
                   ? "LiDAR terrain"
                   : "Regional terrain"}
             </strong>
             <small>
-              {inspectingTerrain && !currentSources.some((source) => source.eligible)
+              {inspectingTerrain && !currentSources.some((source) => source.eligible && (!isHorizonLayer(terrainLayer) || source.horizon_radius_presets_m?.includes(reliefRadius)))
                 ? "No supported local source at map center"
                 : insideCoverage
                 ? (currentArea?.source ?? "Imported elevation data")
@@ -839,8 +844,8 @@ export default function LandscapePage() {
             {inspectingTerrain && (
               <div className={`terrain-legend legend-${terrainLayer}`} aria-label={`${layerInfo.label} legend`}>
                 <span className="legend-ramp" />
-                <span>{terrainLayer === "slope" ? "0°" : terrainLayer === "local-relief" ? "−2 m or lower" : "Shadow"}</span>
-                <span>{terrainLayer === "slope" ? "60° or steeper" : terrainLayer === "local-relief" ? "+2 m or higher" : "Light"}</span>
+                <span>{terrainLegend[terrainLayer]?.[0]}</span>
+                <span>{terrainLegend[terrainLayer]?.[1]}</span>
               </div>
             )}
           </div>

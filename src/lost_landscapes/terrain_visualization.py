@@ -18,8 +18,10 @@ from rasterio.windows import bounds as window_bounds
 from rasterio.windows import from_bounds as window_from_bounds
 from scipy.ndimage import minimum_filter, uniform_filter
 
-VERSION = "native-v3-mosaic"
-LAYERS = ("slope", "local-relief", "hillshade")
+from lost_landscapes import terrain_horizon as horizon
+
+VERSION = "native-v4-horizon"
+LAYERS = ("slope", "local-relief", "hillshade", *horizon.LAYERS)
 RADII = (10, 25, 50)
 AZIMUTHS = tuple(range(0, 360, 45))
 MIN_ZOOM = 14
@@ -27,6 +29,10 @@ MAX_SAMPLES = 4_000_000
 MAX_TOTAL_SAMPLES = 8_000_000
 MAX_NEIGHBOR_SOURCES = 32
 METRE_UNITS = ("m", "metre", "meter", "metres", "meters")
+
+
+def min_zoom(layer):
+    return horizon.MIN_ZOOM if layer in horizon.LAYERS else MIN_ZOOM
 
 
 def source_info(src):
@@ -67,6 +73,8 @@ def source_info(src):
         "vertical_datum": datum or None,
         "mosaic_eligible": mosaic_reason is None,
         "mosaic_reason": mosaic_reason,
+        "horizon_radius_presets_m": [r for r in RADII if math.ceil(r / min(src.res)) <= horizon.MAX_RADIUS_CELLS]
+        if reason is None else [],
         "effective_half_widths_m": {
             str(r): [math.ceil(r / src.res[0]) * src.res[0], math.ceil(r / src.res[1]) * src.res[1]]
             for r in RADII
@@ -90,6 +98,11 @@ def metadata(records):
     return {
         "layers": list(LAYERS),
         "min_zoom": MIN_ZOOM,
+        "layer_min_zoom": {layer: min_zoom(layer) for layer in LAYERS},
+        "horizon": {"directions": horizon.DIRECTIONS, "max_radius_cells": horizon.MAX_RADIUS_CELLS,
+                    "max_sample_comparisons": horizon.MAX_WORK,
+                    "svf_range": [0, 1], "openness_display_degrees": [60, 120],
+                    "sampling": "Physical rays at thirds of the minimum cell spacing, snapped to native cells; full rectangular support required"},
         "radius_presets_m": list(RADII),
         "azimuth_presets": list(AZIMUTHS),
         "altitude_degrees": 45,
@@ -180,6 +193,8 @@ def derivatives(elevation, spacing_x, spacing_y, layer, radius_m=25, azimuth=315
         raise ValueError("Unsupported visualization option")
     if not all(math.isfinite(v) and v > 0 for v in (spacing_x, spacing_y)):
         raise ValueError("Spacing must be finite and positive")
+    if layer in horizon.LAYERS:
+        return horizon.horizon_views(elevation, spacing_x, spacing_y, radius_m, (layer,))[layer]
     values = np.asarray(elevation, dtype=np.float64)
     if values.ndim != 2:
         raise ValueError("Elevation must be a two-dimensional grid")
@@ -226,8 +241,11 @@ def colorize(values, layer):
         endpoint = np.where(t < 0, np.array([44, 112, 168]), np.array([194, 87, 35]))
         rgb = center + np.abs(t) * (endpoint - center)
     else:
-        shade = np.clip(clean / 60, 0, 1) if layer == "slope" else np.clip(clean, 0, 1)
-        if layer == "slope":
+        if layer in ("openness-positive", "openness-negative"):
+            shade = np.clip((clean - 60) / 60, 0, 1)
+        else:
+            shade = np.clip(clean / 60, 0, 1) if layer == "slope" else np.clip(clean, 0, 1)
+        if layer in ("slope", "openness-negative"):
             shade = 1 - shade
         rgb = np.repeat((shade * 255)[..., None], 3, axis=2)
     rgba = np.dstack((np.clip(rgb, 0, 255).astype(np.uint8), valid.astype(np.uint8) * 255))
@@ -243,6 +261,7 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
     result = np.full((size, size), np.nan, dtype=np.float32)
     target = from_bounds(*bounds, size, size)
     consumed = 0
+    horizon_work = 0
     ordered = sorted(records, key=lambda r: (r.resolution_m, str(r.path)))
     for record in ordered:
         if not intersects(record.bounds, bounds):
@@ -255,6 +274,12 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
             # Include interpolation neighbors as well as the complete filter halo.
             rx = math.ceil(radius_m / src.res[0]) if layer == "local-relief" else 1
             ry = math.ceil(radius_m / src.res[1]) if layer == "local-relief" else 1
+            plan = None
+            if layer in horizon.LAYERS:
+                if radius_m not in source_info(src)["horizon_radius_presets_m"]:
+                    continue
+                plan = horizon.search_plan(src.res[0], src.res[1], radius_m)
+                rx, ry = plan[:2]
             hx = rx + max(2, math.ceil(raw.width / size) + 1)
             hy = ry + max(2, math.ceil(raw.height / size) + 1)
             # Extend beyond this source to let compatible neighbors supply the halo.
@@ -264,16 +289,19 @@ def render(records, bounds, layer, radius_m=25, azimuth=315, size=512):
             bottom = min(src.height + hy, math.ceil(raw.row_off + raw.height) + hy)
             width, height = right - left, bottom - top
             samples = width * height
+            comparisons = horizon.work((height, width), plan) if plan else 0
             if (
                 width < 2 * rx + 1
                 or height < 2 * ry + 1
                 or samples > MAX_SAMPLES
                 or consumed + samples > MAX_TOTAL_SAMPLES
+                or horizon_work + comparisons > horizon.MAX_WORK
             ):
                 continue
             window = Window(left, top, width, height)
             elevation, reads = read_neighborhood(src, ordered, window, MAX_TOTAL_SAMPLES - consumed)
             consumed += max(samples, reads)
+            horizon_work += comparisons
             if elevation is None:
                 continue
             scalar = derivatives(elevation, src.res[0], src.res[1], layer, radius_m, azimuth)

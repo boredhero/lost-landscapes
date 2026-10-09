@@ -1,0 +1,119 @@
+{
+  "source": "https://github.com/EarthObservation/RVT_py",
+  "revision": "bab109c409fedf77ccec7de5fd84c48b791df3d2",
+  "reference_function": "rvt.vis.sky_view_factor",
+  "directions": 16,
+  "noise": 0,
+  "license": "RVT source: Apache-2.0. Stored files contain synthetic numeric outputs, not vendored source.",
+  "comparison": "Complete finite interior only; application masks missing support instead of reflecting edges.",
+  "cases": [
+    {
+      "key": "plane-1m-10m",
+      "spacing_m": 1,
+      "radius_m": 10,
+      "margin_cells": 10
+    },
+    {
+      "key": "plane-1m-25m",
+      "spacing_m": 1,
+      "radius_m": 25,
+      "margin_cells": 25
+    },
+    {
+      "key": "plane-1m-50m",
+      "spacing_m": 1,
+      "radius_m": 50,
+      "margin_cells": 50
+    },
+    {
+      "key": "landforms-1m-10m",
+      "spacing_m": 1,
+      "radius_m": 10,
+      "margin_cells": 10
+    },
+    {
+      "key": "landforms-1m-25m",
+      "spacing_m": 1,
+      "radius_m": 25,
+      "margin_cells": 25
+    },
+    {
+      "key": "landforms-1m-50m",
+      "spacing_m": 1,
+      "radius_m": 50,
+      "margin_cells": 50
+    },
+    {
+      "key": "plane-2m-10m",
+      "spacing_m": 2,
+      "radius_m": 10,
+      "margin_cells": 5
+    },
+    {
+      "key": "plane-2m-25m",
+      "spacing_m": 2,
+      "radius_m": 25,
+      "margin_cells": 13
+    },
+    {
+      "key": "plane-2m-50m",
+      "spacing_m": 2,
+      "radius_m": 50,
+      "margin_cells": 25
+    },
+    {
+      "key": "landforms-2m-10m",
+      "spacing_m": 2,
+      "radius_m": 10,
+      "margin_cells": 5
+    },
+    {
+      "key": "landforms-2m-25m",
+      "spacing_m": 2,
+      "radius_m": 25,
+      "margin_cells": 13
+    },
+    {
+      "key": "landforms-2m-50m",
+      "spacing_m": 2,
+      "radius_m": 50,
+      "margin_cells": 25
+    },
+    {
+      "key": "plane-3m-10m",
+      "spacing_m": 3,
+      "radius_m": 10,
+      "margin_cells": 4
+    },
+    {
+      "key": "plane-3m-25m",
+      "spacing_m": 3,
+      "radius_m": 25,
+      "margin_cells": 9
+    },
+    {
+      "key": "plane-3m-50m",
+      "spacing_m": 3,
+      "radius_m": 50,
+      "margin_cells": 17
+    },
+    {
+      "key": "landforms-3m-10m",
+      "spacing_m": 3,
+      "radius_m": 10,
+      "margin_cells": 4
+    },
+    {
+      "key": "landforms-3m-25m",
+      "spacing_m": 3,
+      "radius_m": 25,
+      "margin_cells": 9
+    },
+    {
+      "key": "landforms-3m-50m",
+      "spacing_m": 3,
+      "radius_m": 50,
+      "margin_cells": 17
+    }
+  ]
+}

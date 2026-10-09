@@ -262,7 +262,7 @@ def _render_cached_tile(revision, records, layer, z, x, y, radius_m=25, azimuth=
         if path.exists():
             return path.read_bytes()
         if layer in visualization.LAYERS:
-            if z < visualization.MIN_ZOOM:
+            if z < visualization.min_zoom(layer):
                 data = visualization.colorize(np.full((SIZE, SIZE), np.nan), layer)
             else:
                 data = visualization.render(records, tile_bounds(z, x, y), layer, radius_m, azimuth)

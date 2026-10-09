@@ -67,8 +67,9 @@ for a useful explorer.
    [the evaluation protocol](evaluation-protocol.md). Real-data cohort selection
    and review remain dependencies; synthetic results are not accuracy evidence.
 3. Delivery C1 now implements compatible-source terrain neighborhoods with
-   explicit provenance and grid checks. Genuine SVF/openness/VAT are next as
-   separate commits, with reference-output comparisons and bounded CPU work.
+   explicit provenance and grid checks. Delivery C2 adds genuine SVF and both
+   openness views with pinned RVT reference comparisons. VAT and expanded
+   performance checks are next, with bounded CPU work.
 4. Begin D's persistence contract before adding more investigation UI or detector
    output formats. Define one investigation schema with
    geometry, observations, proposed interpretations, evidence, provenance,
@@ -125,8 +126,8 @@ features below; the roadmap is our engineering proposal, not a published recipe.
 
 The first slice includes slope, signed local relief with 10/25/50 m square
 half-widths, eight directional-light presets, source provenance, and live explorer
-controls. Delivery C1 adds compatible-source neighborhoods. Genuine
-SVF/openness/VAT and broader performance evaluation remain follow-ups;
+controls. Delivery C1 adds compatible-source neighborhoods; C2 adds genuine SVF
+and positive/negative openness. VAT and broader performance evaluation remain follow-ups;
 Stage 1 is not complete.
 
 Deliver existing multidirectional relief plus slope, directional hillshade, and
@@ -430,6 +431,25 @@ new path separately. The window/source/read caps remain enforced.
 
 Next: genuine sky-view factor and positive/negative openness, followed by a
 documented VAT composite. Full Stage 1 completion remains pending.
+
+### Delivery C2 — SVF and positive/negative openness
+
+Implemented native physical horizon searches in 16 directions, with 10/25/50 m
+radius controls, legends and zoom guidance. New views require zoom 16 or closer,
+at most 128 native radius cells and at most 240 million sampled-cell comparisons
+per request. Missing neighborhoods remain transparent and compatible DEM joins
+are reused. Display exaggeration does not change the scientific quantities.
+
+The 18 pinned official RVT reference cases agree over supported interiors within
+0.000002 SVF and 0.0002° openness. Additional tests cover analytic surfaces,
+rectangular cells, sign behavior, gaps, tile joins, limits and low-zoom requests.
+Local validation: 279 tests passed, 72 skipped for native tools/optional
+dependencies; Ruff, frontend ESLint, TypeScript and production build passed.
+Browser review passed all new views, radius switching, mobile layout and 3D
+comparison with zero JavaScript errors, failed terrain requests or overflow.
+Methods and reproduction commands are in [advanced terrain](advanced-terrain.md).
+
+VAT and the expanded performance evaluation remain in this requested work.
 
 Deliver stages as small reviewable changes; a stage can span multiple PRs.
 Documentation status and validation results must reflect actual implementation.

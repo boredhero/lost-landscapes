@@ -13,6 +13,7 @@ import type {
 import type { StyleSpecification } from "maplibre-gl";
 import type { Detection } from "../../types";
 import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
+import { terrainMinZoom, usesTerrainRadius } from "./terrainLayers";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type MapMode = "lidar" | "aerial" | "compare";
@@ -58,7 +59,7 @@ function style(
 ): StyleSpecification {
   const suffix = `?v=${encodeURIComponent(revision)}`;
   const derivative = terrainLayer !== "relief";
-  const parameters = terrainLayer === "local-relief" ? `&radius_m=${reliefRadius}`
+  const parameters = usesTerrainRadius(terrainLayer) ? `&radius_m=${reliefRadius}`
     : terrainLayer === "hillshade" ? `&azimuth=${lightAzimuth}` : "";
   return {
     version: 8,
@@ -75,7 +76,7 @@ function style(
         type: "raster",
         tiles: [`/api/landscape/tiles/${terrainLayer}/{z}/{x}/{y}.png${suffix}${parameters}`],
         tileSize: 512,
-        minzoom: derivative ? 14 : 0,
+        minzoom: derivative ? terrainMinZoom(terrainLayer) : 0,
         maxzoom: 18,
       },
       aerial: {

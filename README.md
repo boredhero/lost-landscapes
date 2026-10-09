@@ -28,9 +28,15 @@ ground; the fixed colour scale saturates at −2/+2 m. Slope uses a fixed
 0–60° scale. Directional light offers eight compass directions at 45° altitude.
 These are visualization aids, not archaeological classifications.
 
+**Sky-view factor**, **Positive openness** and **Negative openness** inspect the
+surrounding horizon in 16 directions, using 10/25/50 m search radii. They require
+zoom 16 or closer and bounded native support. Openness is displayed over 60–120°,
+with negative openness using reversed shading; flat ground is 90°. SVF is shown
+over 0–1. See [advanced terrain methods and reference checks](docs/advanced-terrain.md).
+
 Inspection layers calculate on the native DEM grid before resampling for the
 map. They use only eligible local north-up projected metre rasters with source
-spacing at most 5 m, and are available at zoom 14–18 (higher map zooms enlarge
+spacing at most 5 m, and are available at zoom 14–18 (16–18 for horizon views; higher map zooms enlarge
 the final tile). Exaggerating the 3D view does not change their calculations.
 The data panel reports source eligibility, native spacing, effective neighborhood
 size and elevation units. Undeclared elevation units are explicitly assumed to
