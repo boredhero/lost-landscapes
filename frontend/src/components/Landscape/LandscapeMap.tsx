@@ -11,7 +11,6 @@ import type {
   ViewState,
 } from "react-map-gl/maplibre";
 import type { StyleSpecification } from "maplibre-gl";
-import LoadingNotice from "./LoadingNotice";
 import type { Detection } from "../../types";
 import type { ContextSource } from "./contextLayers";
 import type { ReliefRadius, TerrainLayer } from "./terrainLayers";
@@ -53,7 +52,7 @@ interface Props {
   onSelect: (d: Detection) => void;
   onView: (view: ViewState, bbox: Bounds) => void;
   onTerrainError: () => void;
-  onLoading: (loading: boolean) => void;
+  onLoading: (sources: string[]) => void;
 }
 const initial = {
   longitude: -79.986,
@@ -176,7 +175,7 @@ export default function LandscapeMap(props: Props) {
   } = props;
   const map = useRef<MapRef>(null);
   const comparisonMap = useRef<MapRef>(null);
-  const [pendingSources, setPendingSources] = useState<string[]>(["Preparing map…"]);
+  const lastPending = useRef<string | null>(null);
   const [camera, setCamera] = useState(initial);
   const baseStyle = useMemo(
     () => style(mode === "aerial", revision, terrainLayer, reliefRadius, lightAzimuth, props.contextSource, props.contextOpacity, props.contextAttempt),
@@ -204,8 +203,11 @@ export default function LandscapeMap(props: Props) {
         check(comparisonMap.current, 'aerial', 'Loading comparison imagery…');
         if (is3D) check(comparisonMap.current, 'terrain', 'Loading comparison terrain…');
       }
-      setPendingSources(previous => previous.join('|') === pending.join('|') ? previous : pending);
-      onLoading(pending.length > 0);
+      const key = pending.join('|');
+      if (lastPending.current !== key) {
+        lastPending.current = key;
+        onLoading(pending);
+      }
     };
     const timer = window.setInterval(update, 250);
     return () => window.clearInterval(timer);
@@ -353,9 +355,6 @@ export default function LandscapeMap(props: Props) {
         <ScaleControl position="bottom-left" unit="metric" />
         <AttributionControl position="bottom-right" compact />
       </Map>
-      <div className="map-loading-notices">
-        {pendingSources.map(label => <LoadingNotice key={label} label={label} />)}
-      </div>
       {mode === "compare" && (
         <>
           <div

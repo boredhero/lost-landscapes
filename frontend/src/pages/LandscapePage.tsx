@@ -109,7 +109,7 @@ export default function LandscapePage() {
   const [split, setSplit] = useState(50);
   const [panel, setPanel] = useState<"explore" | "terrain" | "notebook" | "shortlist" | "context" | null>("explore");
   const [contextId, setContextId] = useState('');
-  const [contextOpacity, setContextOpacity] = useState(0.55);
+  const [contextOpacity, setContextOpacity] = useState(0.25);
   const [contextError, setContextError] = useState(false);
   const [contextAttempt, setContextAttempt] = useState(0);
   const contextQuery = useQuery<{ sources: ContextSource[] }>({
@@ -124,13 +124,13 @@ export default function LandscapePage() {
     retry: false,
   });
   const contextSource = contextQuery.data?.sources.find(source => source.id === contextId);
-  const [coverage, setCoverage] = useState(false);
+  const [coverage, setCoverage] = useState(true);
   const [query, setQuery] = useState("");
   const [scanPreset, setScanPreset] = useState("landscape_discovery");
   const [searching, setSearching] = useState(false);
   const [notice, setNotice] = useState("");
   const [terrainError, setTerrainError] = useState(false);
-  const [loadingTiles, setLoadingTiles] = useState(true);
+  const [loadingSources, setLoadingSources] = useState<string[]>([]);
   const [selected, setSelected] = useState<Detection | null>(null);
   const [activeArea, setActiveArea] = useState<Area | null>(null);
   const [target, setTarget] = useState<CameraTarget | null>(null);
@@ -405,6 +405,12 @@ export default function LandscapePage() {
       setSubmitting(false);
     }
   }
+  const pendingWork = [
+    ...(catalogQuery.isFetching ? ['Loading study areas…'] : []),
+    ...(searching ? ['Finding location…'] : []),
+    ...(contextQuery.isFetching ? ['Loading evidence sources…'] : []),
+    ...loadingSources,
+  ];
   function locate() {
     if (!navigator.geolocation) {
       setNotice("Location is unavailable in this browser. Use search instead.");
@@ -473,13 +479,8 @@ export default function LandscapePage() {
         }}
         onView={onView}
         onTerrainError={onTerrainError}
-        onLoading={setLoadingTiles}
+        onLoading={setLoadingSources}
       />
-      <div className="request-loading-notices">
-        {catalogQuery.isFetching && <LoadingNotice label="Loading study areas…" />}
-        {searching && <LoadingNotice label="Finding location…" />}
-        {contextQuery.isFetching && <LoadingNotice label="Loading evidence sources…" />}
-      </div>
       <header className="landscape-header">
         <a
           className="landscape-brand"
@@ -935,23 +936,24 @@ export default function LandscapePage() {
       <div className="map-bottom">
         <div className="terrain-status">
           <span className={`status-dot ${insideCoverage && !inspectingTerrain ? "" : "muted-dot"}`} />
-          <div>
+          <div className="terrain-status-content">
             <strong>
-              {loadingTiles
-                ? "Loading terrain…"
-                : inspectingTerrain
+              {inspectingTerrain
                   ? view.zoom < minimumZoom ? "Zoom in for terrain detail" : layerInfo.label
-                : insideCoverage
+                : insideCoverage && view.zoom >= 13
                   ? "LiDAR terrain"
-                  : "Regional terrain"}
+                  : "Regional elevation · low detail"}
             </strong>
             <small>
               {inspectingTerrain && !currentSources.some((source) => source.eligible && (!isHorizonLayer(terrainLayer) || source.horizon_radius_presets_m?.includes(reliefRadius)))
                 ? "No supported local source at map center"
                 : insideCoverage
                 ? (currentArea?.source ?? "Imported elevation data")
-                : "Zoom to a study area for fine ground detail"}
+                : "Outside the loaded LiDAR coverage"}
             </small>
+            {(!insideCoverage || view.zoom < 13) && catalog.areas.length > 0 && <button className="coverage-link" onClick={() => visit(catalog.areas[0])}>Go to LiDAR coverage →</button>}
+            {contextSource && <div className="active-overlay"><button onClick={() => setPanel('context')}>{contextSource.name} · {Math.round(contextOpacity * 100)}%</button><button aria-label="Remove active overlay" onClick={() => { setContextId(''); setContextError(false); }}>×</button></div>}
+            {pendingWork.length > 0 && <LoadingNotice label={pendingWork.length === 1 ? pendingWork[0] : `Loading ${pendingWork.length} layers`} details={pendingWork} />}
             {inspectingTerrain && (
               <div className={`terrain-legend legend-${terrainLayer}`} aria-label={`${layerInfo.label} legend`}>
                 <span className="legend-ramp" />
@@ -961,7 +963,7 @@ export default function LandscapePage() {
             )}
           </div>
         </div>
-        <button
+        {catalog.analysis_enabled && <button
           className="analyze-button"
           onClick={analyze}
           disabled={busy || !catalog.analysis_enabled || !bbox}
@@ -983,7 +985,7 @@ export default function LandscapePage() {
                 ? "Analyze this area"
                 : "Terrain preview"}
           </span>
-        </button>
+        </button>}
       </div>
       {(busy || job?.status === "FAILED" || jobQuery.isError) && (
         <div className="analysis-progress" role="status">
