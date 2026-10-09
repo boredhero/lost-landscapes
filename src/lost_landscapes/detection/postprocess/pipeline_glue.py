@@ -14,6 +14,7 @@ callers pass `filter_candidates_by_buildings` and
 from collections.abc import Callable
 
 from lost_landscapes.detection.base import Candidate
+from lost_landscapes.detection.geometry_support import PASSES as GEOMETRY_PASSES
 from lost_landscapes.detection.postprocess.post_fuse_gate import apply_post_fuse_gate
 
 
@@ -49,6 +50,16 @@ def run_post_fuse_chain(
     )
     if not candidates:
         return []
+    experimental = [(c, lon, lat) for c, (lon, lat) in zip(candidates, wgs84_coords)
+                    if c.metadata.get("algorithm") in GEOMETRY_PASSES and c.score >= 0.3]
+    if experimental:
+        legacy = [(c, xy) for c, xy in zip(candidates, wgs84_coords) if c.metadata.get("algorithm") not in GEOMETRY_PASSES]
+        remaining = run_post_fuse_chain([c for c, _ in legacy], [xy for _, xy in legacy], bbox, cap=cap,
+                                       gate_kwargs=gate_kwargs, buildings_filter_func=buildings_filter_func,
+                                       infra_filter_func=infra_filter_func, rim_filter_func=rim_filter_func)
+        # Modern roads/buildings are alternatives for review, not exclusion gates
+        # for road/earthwork discovery. They remain documented in candidate evidence.
+        return sorted(experimental + remaining, key=lambda item: item[0].score, reverse=True)[:cap]
     survivors = apply_post_fuse_gate(candidates, **(gate_kwargs or {}))
     survivor_ids = {id(c) for c in survivors}
     paired = [

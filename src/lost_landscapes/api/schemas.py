@@ -7,6 +7,7 @@ from pydantic import BaseModel
 # --- Detection schemas ---
 
 class DetectionProperties(BaseModel):
+    outline: dict | None = None
     feature_type: str | None = None
     confidence: float = 0.0
     depth_m: float | None = None

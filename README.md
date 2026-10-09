@@ -266,3 +266,5 @@ inside worker threads. `evidence_queue` and `evidence_fetch_complete` show exter
 imagery queue and total fetch time by source. Requests cancelled or failing before
 completion are logged explicitly. Browser-cache hits and imagery fetched directly
 from Esri do not reach the backend and must be inspected in browser network tools.
+
+See [experimental discovery detectors](docs/discovery-detectors.md) for the broad scan preset, morphology families, limits and evaluation gates.

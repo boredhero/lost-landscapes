@@ -1,13 +1,12 @@
 # Research-informed development plan
 
-Status: Stage 1's bounded terrain visualization implementation and reference/
-performance checks are complete for delivery on `develop`. Production release
-is pending. The evaluation foundation, local investigations/measurements, and scan lifecycle/
-shortlist workflow are implemented. The full scientific evaluation harness,
-historical context, richer investigation tools and broader detectors remain incomplete.
-The acceptance criteria below are release gates, not claims that
-every item has passed. Later stages remain pending. This plan follows the CPU deployment
-and delivery rules in `CLAUDE.md`.
+Status: terrain visualization, local investigations/measurements, scan review and
+initial contextual overlays were merged in PR #15; loading/request diagnostics
+were merged in PR #16. Delivery G now has an experimental morphology implementation
+on `develop`, pending release and regional evaluation. The benchmark contract
+exists; reviewed datasets, full evaluation, field packets and broader geographic
+coverage remain unfinished. Acceptance criteria below are gates, not completed
+scientific validation claims.
 
 ## Objective and working assumptions
 
@@ -275,7 +274,7 @@ as exhaustive ground truth.
 
 ## Stage 4 — Feature-family geometry detectors
 
-**Status:** pending. **Depends on:** Stages 1–2, regional evidence, and the early
+**Status:** initial experimental passes implemented; reviewed regional benchmarks, richer network/pattern extraction and promotion gates pending. **Depends on:** Stages 1–2, regional evidence, and the early
 Stage 5 benchmark specification and locked evaluation split.
 
 Develop independent detectors and regional presets for selected families:
@@ -573,3 +572,16 @@ bulk export or persistent mirror is created. See [context-sources.md](context-so
 for research, exact sources, architecture and the catalog/discovery expansion path.
 Field packets/observation imports, richer evidence attachments, and nationwide
 catalog discovery remain later Delivery F work.
+
+### Delivery G1 — experimental morphology families
+
+Five independent passes now cover mounds/platforms, raised/lowered linear features,
+closed enclosures, repeated positive-feature arrangements, and ridge/hollow/scarp
+morphology. Candidate footprints, metrics, versions, parameters and explanations
+survive worker storage, API responses and investigation saves. New families bypass
+depression-only fusion/classification and infrastructure rejection. Synthetic
+correctness and bounded CPU checks are implemented; no real-world accuracy claim
+is made. See [discovery-detectors.md](discovery-detectors.md) for scope and limits.
+Stage 4 is not scientifically complete: reviewed regional evaluation, curved road
+networks, broken/rectilinear patterns, richer geological context and cross-tile
+feature handling remain follow-up work.

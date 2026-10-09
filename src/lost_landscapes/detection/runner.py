@@ -10,6 +10,8 @@ import rasterio
 from lost_landscapes.config import settings
 from lost_landscapes.detection.base import Candidate, DetectionPass, PassInput
 from lost_landscapes.detection.fusion import ResultFuser
+from lost_landscapes.detection.geometry_support import PASSES as GEOMETRY_PASSES
+from lost_landscapes.detection.geometry_support import prepare
 from lost_landscapes.detection.postprocess.classification import classify_candidate
 from lost_landscapes.detection.postprocess.morphometrics import compute_morphometrics_for_candidate
 from lost_landscapes.detection.registry import PassRegistry
@@ -71,7 +73,11 @@ class PassRunner:
 
         t0 = time.perf_counter()
         with rasterio.open(dem_path) as src:
-            dem = src.read(1).astype(np.float32)
+            elevation_unit = src.units[0] or src.tags(1).get("UNITTYPE") or src.tags().get("elevation_units")
+            if any(p.name in GEOMETRY_PASSES for p in self.passes) and elevation_unit and elevation_unit.lower() not in {"m", "metre", "metres", "meter", "meters"}:
+                raise ValueError("Discovery requires metre elevations; reproject/convert the source first")
+            dem = src.read(1, masked=True).astype(np.float32).filled(np.nan)
+            dem = dem * src.scales[0] + src.offsets[0]
             transform = src.transform
             crs = resolve_epsg(src.crs)
         dem_io_elapsed = time.perf_counter() - t0
@@ -108,7 +114,13 @@ class PassRunner:
                     count=len(loaded_derivatives), total_mb=round(total_bytes / 1e6, 1),
                 )
 
-        return self.run_on_array(dem, transform, crs, loaded_derivatives, point_cloud)
+        result = self.run_on_array(dem, transform, crs, loaded_derivatives, point_cloud)
+        for c in result:
+            if c.metadata.get("experimental"):
+                stat = dem_path.stat()
+                c.metadata.update(source_dem=dem_path.name, source_size_bytes=stat.st_size, source_modified_ns=stat.st_mtime_ns,
+                                  elevation_units="metres (assumed when undeclared)")
+        return result
 
     def run_on_array(
         self,
@@ -134,6 +146,9 @@ class PassRunner:
 
         if derivatives is None:
             derivatives = {}
+
+        if any(p.name in GEOMETRY_PASSES for p in self.passes):
+            derivatives = {**derivatives, **prepare(dem, transform, crs)}
 
         profiler = get_profiler()
         detection_wall_start = time.perf_counter()
@@ -174,8 +189,14 @@ class PassRunner:
                         parent="detection_passes",
                         candidates=len(candidates),
                     )
+                for c in candidates:
+                    if detection_pass.name in GEOMETRY_PASSES:
+                        c.metadata.update(crs=f"EPSG:{crs}", resolution_m=[abs(transform.a), abs(transform.e)],
+                                          relief_half_widths_m=[10, 25])
                 return [(detection_pass.name, c) for c in candidates]
             except Exception as e:
+                if detection_pass.name in GEOMETRY_PASSES:
+                    raise
                 elapsed = time.perf_counter() - t0
                 log.error("pass_failed", pass_name=detection_pass.name, error=str(e), elapsed_s=round(elapsed, 3), exception=True)
                 return []
@@ -204,6 +225,10 @@ class PassRunner:
         # Pre-filter before DBSCAN: remove obvious junk that can't survive post-fusion
         # quality filters. Use looser thresholds than post-fusion (score 0.15 vs 0.3)
         # because multi-pass fusion bonus (1.2x) can boost borderline candidates.
+        # Shape families never enter depression-specific fusion or classification.
+        geometry_candidates = [c for name, c in all_candidates if name in GEOMETRY_PASSES
+                               and c.score >= self.fuser.min_confidence]
+        all_candidates = [(name, c) for name, c in all_candidates if name not in GEOMETRY_PASSES]
         pre_count = len(all_candidates)
         all_candidates = [(pn, c) for pn, c in all_candidates if c.score > 0.15 and c.morphometrics.get("area_m2", 0) > 20 and c.morphometrics.get("depth_m", c.morphometrics.get("lrm_anomaly_m", 0)) < 200]
         log.info("pre_fusion_filter", before=pre_count, after=len(all_candidates), removed=pre_count - len(all_candidates))
@@ -251,4 +276,4 @@ class PassRunner:
             profiler.record("detection_total", total_elapsed, parent=None,
                             passes=len(self.passes), fused=len(fused))
 
-        return fused
+        return sorted(fused + geometry_candidates, key=lambda c: c.score, reverse=True)

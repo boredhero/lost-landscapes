@@ -137,6 +137,7 @@ def ensure_passes_registered():
     import lost_landscapes.detection.passes as passes_mod
     from lost_landscapes.detection.passes import (
         curvature,
+        discovery,
         fill_difference,
         local_relief_model,
         morphometric_filter,
@@ -150,7 +151,7 @@ def ensure_passes_registered():
     )
 
     # Force re-registration if registry was cleared
-    for mod in [fill_difference, local_relief_model, curvature, sky_view_factor,
+    for mod in [discovery, fill_difference, local_relief_model, curvature, sky_view_factor,
                 tpi, point_density, multi_return, morphometric_filter,
                 random_forest, unet_segmentation, yolo_detector]:
         importlib.reload(mod)

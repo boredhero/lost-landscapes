@@ -298,7 +298,7 @@ export default function LandscapeMap(props: Props) {
         onMove={(event) => setCamera(event.viewState)}
         onMoveEnd={reportView}
         onClick={click}
-        interactiveLayerIds={["candidates", "finding-points", "finding-lines", "finding-areas"]}
+        interactiveLayerIds={["candidates", "candidate-footprints", "finding-points", "finding-lines", "finding-areas"]}
         cursor={props.drawing ? "crosshair" : "grab"}
         doubleClickZoom={!props.drawing}
         onError={event => {
@@ -311,6 +311,9 @@ export default function LandscapeMap(props: Props) {
           <Layer id="finding-areas" type="fill" filter={['==', ['geometry-type'], 'Polygon']} paint={{ 'fill-color': '#efc578', 'fill-opacity': 0.2 }} />
           <Layer id="finding-lines" type="line" filter={['!=', ['geometry-type'], 'Point']} paint={{ 'line-color': '#efc578', 'line-width': 3 }} />
           <Layer id="finding-points" type="circle" filter={['==', ['geometry-type'], 'Point']} paint={{ 'circle-color': '#efc578', 'circle-radius': 7, 'circle-stroke-width': 2, 'circle-stroke-color': '#243a2c' }} />
+        </Source>
+        <Source id="candidate-outlines" type="geojson" data={{ type: 'FeatureCollection', features: detections.filter(d => d.outline).map(d => ({ type: 'Feature' as const, geometry: d.outline!, properties: { id: d.id } })) }}>
+          <Layer id="candidate-footprints" type="line" paint={{ 'line-color': '#e9b765', 'line-width': 2, 'line-dasharray': [3, 2] }} />
         </Source>
         <Source id="candidate-data" type="geojson" data={geojson}>
           <Layer

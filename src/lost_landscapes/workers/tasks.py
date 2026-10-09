@@ -160,7 +160,9 @@ def run_detection(self, dem_path: str, derivative_paths: dict, pass_config_name:
     # Load DEM + derivatives
     with profiler.stage("load_rasters", parent="detection_io"):
         with rasterio.open(dem_path) as src:
-            dem = src.read(1).astype(np.float32)
+            elevation_unit = src.units[0] or src.tags(1).get("UNITTYPE") or src.tags().get("elevation_units")
+            dem = src.read(1, masked=True).astype(np.float32).filled(np.nan)
+            dem = dem * src.scales[0] + src.offsets[0]
             transform = src.transform
             crs_code = resolve_epsg(src.crs)
 
@@ -179,27 +181,23 @@ def run_detection(self, dem_path: str, derivative_paths: dict, pass_config_name:
     config_path = pass_config_path(pass_config_name)
 
     runner = PassRunner.from_toml(config_path)
+    from lost_landscapes.detection.geometry_support import PASSES as GEOMETRY_PASSES
+    if any(p.name in GEOMETRY_PASSES for p in runner.passes) and elevation_unit and elevation_unit.lower() not in {"m", "metre", "metres", "meter", "meters"}:
+        raise ValueError("Discovery requires metre elevations")
     candidates = runner.run_on_array(dem, transform, crs_code, derivs)
 
     self.update_state(state="PROGRESS", meta={"percent": 70, "message": f"Storing {len(candidates)} detections"})
 
     # Filter and transform to WGS84
     transformer = Transformer.from_crs(f"EPSG:{crs_code}", "EPSG:4326", always_xy=True)
-    ft_map = {
-        "sinkhole": DBFeatureType.SINKHOLE,
-        "cave_entrance": DBFeatureType.CAVE_ENTRANCE,
-        "mine_portal": DBFeatureType.MINE_PORTAL,
-        "depression": DBFeatureType.DEPRESSION,
-        "collapse_pit": DBFeatureType.COLLAPSE_PIT,
-        "unknown": DBFeatureType.UNKNOWN,
-    }
+    ft_map = {kind.value: kind for kind in DBFeatureType}
 
     good = [c for c in candidates
-            if c.score > 0.4
+            if c.metadata.get("experimental") or (c.score > 0.4
             and c.morphometrics.get("area_m2", 0) > 50
             and (c.morphometrics.get("depth_m", 0) or c.morphometrics.get("lrm_anomaly_m", 0)) < 100
             and c.morphometrics.get("circularity", 1.0) > 0.15
-            and c.morphometrics.get("elongation", 1.0) > 0.2]
+            and c.morphometrics.get("elongation", 1.0) > 0.2)]
 
     async def _store():
         async with _async_session() as session:
@@ -216,7 +214,7 @@ def run_detection(self, dem_path: str, derivative_paths: dict, pass_config_name:
                     area_m2=c.morphometrics.get("area_m2"),
                     circularity=c.morphometrics.get("circularity"),
                     wall_slope_deg=c.morphometrics.get("wall_slope_deg"),
-                    source_passes=c.metadata.get("source_passes") if c.metadata else None,
+                    source_passes={**(c.metadata or {}), "pass_config": pass_config_name},
                     morphometrics={k: float(v) if isinstance(v, (int, float)) else v
                                    for k, v in c.morphometrics.items()},
                 )
@@ -398,14 +396,7 @@ def run_full_pipeline(self, job_id: str, pass_config: str, bbox_geojson: dict):
         config_path = pass_config_path(pass_config)
         runner = PassRunner.from_toml(config_path)
 
-        ft_map = {
-            "sinkhole": DBFeatureType.SINKHOLE,
-            "cave_entrance": DBFeatureType.CAVE_ENTRANCE,
-            "mine_portal": DBFeatureType.MINE_PORTAL,
-            "depression": DBFeatureType.DEPRESSION,
-            "collapse_pit": DBFeatureType.COLLAPSE_PIT,
-            "unknown": DBFeatureType.UNKNOWN,
-        }
+        ft_map = {kind.value: kind for kind in DBFeatureType}
 
         # Thread-safe counter
         import threading

@@ -21,6 +21,15 @@ class FeatureType(StrEnum):
     SPRING = "spring"
     LAVA_TUBE = "lava_tube"
     SALT_DOME_COLLAPSE = "salt_dome_collapse"
+    MOUND = "mound"
+    PLATFORM = "platform"
+    LINEAR_BANK = "linear_bank"
+    LINEAR_DITCH = "linear_ditch"
+    ENCLOSURE = "enclosure"
+    REPEATED_PATTERN = "repeated_pattern"
+    RIDGE = "ridge"
+    HOLLOW = "hollow"
+    SCARP = "scarp"
     UNKNOWN = "unknown"
 
 
