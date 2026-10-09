@@ -74,7 +74,7 @@ jobs:
         run: uv run --no-sync python -c "import whitebox; print(whitebox.WhiteboxTools().version())"
       - name: Run unit tests (stop on first failure)
         run: uv run --no-sync pytest tests/unit/ -x -q --tb=short --junitxml=test-results.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: python-test-results
@@ -97,7 +97,7 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frontend
           path: frontend/dist
