@@ -1,8 +1,9 @@
 # Research-informed development plan
 
-Status: implementation plan; Stage 1 is partially implemented and checked locally.
-The first terrain slice is prepared for delivery on `develop`; production release
-remains pending. The acceptance criteria below are release gates, not claims that
+Status: implementation plan; the first terrain slice and evaluation foundation
+are implemented for incremental delivery on `develop`. Stage 1 and the full
+evaluation harness remain incomplete; production release is pending.
+The acceptance criteria below are release gates, not claims that
 every item has passed. Later stages remain pending. This plan follows the CPU deployment
 and delivery rules in `CLAUDE.md`.
 
@@ -59,20 +60,23 @@ for a useful explorer.
 
 ### Immediate next work
 
-1. Review the current diff against Stage 1's first-slice acceptance criteria;
-   resolve any outstanding findings and update the recorded validation.
-2. Run required checks in the supported native-tool environment. Preserve the
-   distinction between locally skipped checks and checks actually passed in CI.
-3. Package A as a focused commit on `develop` and a PR to `master` when delivering
-   the implementation. Include screenshots of angled 3D and mobile controls,
-   test results and the remaining Stage 1 limitations. Owner merges.
-4. Begin B's manifest/label contract and D's persistence contract before adding
-   more UI or detector output formats. Define one investigation schema with
+1. Delivery A was committed and pushed to `develop` as `e0da889`; native-tool
+   GitHub CI passed. Draft PR #15 tracks the work; production release is pending.
+2. Delivery B now supplies the manifest/label contract, synthetic fixtures,
+   spatial validation and bounded point-scoring baseline described in
+   [the evaluation protocol](evaluation-protocol.md). Real-data cohort selection
+   and review remain dependencies; synthetic results are not accuracy evidence.
+3. Next, implement C's compatible-source terrain neighborhoods before advanced
+   views that need larger neighborhoods. Inspect source CRS, grid alignment,
+   resolution and vertical metadata explicitly; unsupported combinations remain
+   unavailable. Genuine SVF/openness/VAT follow as separate commits.
+4. Begin D's persistence contract before adding more investigation UI or detector
+   output formats. Define one investigation schema with
    geometry, observations, proposed interpretations, evidence, provenance,
    review state and revisions; keep detector scores separate from human judgment.
-5. Implement C's compatible-source neighborhoods before advanced views that need
-   larger terrain neighborhoods. Inspect source CRS, grid alignment, resolution
-   and vertical metadata explicitly; unsupported combinations remain unavailable.
+5. Validate each delivery, commit and push to the same `develop` branch, then
+   inspect CI before proceeding. Update the existing draft PR as scope grows;
+   the owner controls merging to `master`.
 
 ### Scope decisions and open dependencies
 
@@ -289,7 +293,8 @@ tested for lost true positives as well as removed false positives.
 
 ## Stage 5 — Reproducible scientific benchmark
 
-**Status:** protocol starts alongside Stage 1; full harness pending.
+**Status:** version 1 contract and synthetic point baseline implemented in
+Delivery B; reviewed real datasets and the full harness remain pending.
 **Depends on:** independently reviewed labels and stable detector outputs.
 
 Create a versioned dataset manifest with survey provenance, coverage, regional
@@ -364,8 +369,29 @@ terrain performance measurements are recorded under Stage 1 above.
 
 Remaining Stage 1 work includes compatible-source neighborhoods and genuine
 SVF/openness/VAT. Delivery A does not complete the entire stage. The next delivery
-is B: a versioned evaluation manifest and label contract with example fixtures,
-spatial split rules and meaningful miss/duplicate handling.
+is recorded below.
+
+### Delivery B — evaluation contract and point baseline
+
+Implemented: strict version 1 models for source provenance, geographic regions,
+spatial splits, label review history and reproducible prediction inputs; offline
+validation/schema/scoring commands; explicitly synthetic fixtures; and
+[the evaluation protocol](evaluation-protocol.md). The point baseline enforces
+one-to-one same-family matching, counts empty predictions as misses and duplicate
+suggestions as false positives, and excludes unresolved or unreviewed areas.
+Nonpoint labels are stored but cannot silently enter point scoring.
+
+The unit coverage exercises spatial leakage, physical-feature duplication,
+projection and evidence validation, changed-manifest rejection, false negatives,
+wrong-family results, duplicates, exclusions and CLI behavior. Candidate real-data
+cohorts are documented as selection targets, not acquired or reviewed benchmarks.
+No detector accuracy claim or model training is included. Next: Delivery C,
+starting with compatible-source terrain neighborhoods.
+
+Local validation for this delivery: 30 new benchmark tests passed; the full unit
+suite passed with 227 tests and 72 native-tool/optional-dependency skips. Ruff
+0.15.7 passed. The documented validate and score commands ran successfully against
+the committed synthetic examples. Native-tool tests run separately in GitHub CI.
 
 Deliver stages as small reviewable changes; a stage can span multiple PRs.
 Documentation status and validation results must reflect actual implementation.

@@ -48,6 +48,17 @@ The [staged development plan](docs/development-plan.md) covers remaining terrain
 views, measurements, investigations, historical context, separate detector
 families, scientific evaluation and locally trained models. Stage 1 is underway.
 
+The [evaluation protocol](docs/evaluation-protocol.md) defines versioned survey,
+region, label and prediction contracts. An offline validator checks evidence and
+spatial splits; a bounded point baseline counts misses, duplicates and false
+positives. Its included examples are synthetic and do not measure real-world
+detection accuracy.
+
+```sh
+uv run --no-sync python -m lost_landscapes.benchmark validate tests/fixtures/benchmark/synthetic-manifest.json
+uv run --no-sync python -m lost_landscapes.benchmark score-points tests/fixtures/benchmark/synthetic-manifest.json tests/fixtures/benchmark/synthetic-predictions.json
+```
+
 ## Terrain and performance
 
 The new `/api/landscape` renderer reads intersecting LiDAR DEMs into 512-pixel
