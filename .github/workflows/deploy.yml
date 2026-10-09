@@ -20,7 +20,7 @@ jobs:
       name: production
       url: https://anomalies.martinospizza.dev
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Configure dedicated deployment identity
         env:
           DEPLOY_KEY: ${{ secrets.LANDSCAPES_DEPLOY_KEY }}
