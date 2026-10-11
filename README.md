@@ -248,9 +248,10 @@ catalog entries are regional pilot coverage. See [source architecture and resear
 
 ### Loading and request diagnostics
 
-The map shows separate loading notices for terrain, aerial/comparison imagery and
-historical overlays, with elapsed time and a slow-loading hint after eight seconds.
-Search, catalogs and elevation measurements also show pending work.
+The map combines terrain, aerial/comparison imagery, historical overlays, search
+and catalog loading into one expandable status row with elapsed time. Coverage
+and the active overlay remain visible, with a shortcut back to the loaded LiDAR
+area. Elevation measurements also show pending work.
 
 Backend console and daily logs include `request_in` and `request_out`, correlated
 by `rid` (also returned as `X-Request-ID`). `headers_ms` measures time until response

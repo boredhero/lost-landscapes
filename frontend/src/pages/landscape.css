@@ -862,7 +862,7 @@
     width: auto;
   }
   .map-bottom {
-    bottom: 36px;
+    bottom: 70px;
     left: 14px;
     right: 14px;
     gap: 8px;
@@ -945,32 +945,45 @@
 .context-panel a { color: #31533b; text-underline-offset: 3px; }
 .context-panel input[type="range"] { padding: 0; }
 
-/* Keep loading visible over the map without blocking navigation or drawing. */
-.map-loading-notices, .request-loading-notices {
-  position: absolute;
-  z-index: 3;
-  right: 76px;
-  top: 110px;
-  display: grid;
-  gap: 6px;
-  max-width: min(360px, calc(100vw - 100px));
-  pointer-events: none;
-}
-.request-loading-notices { top: auto; bottom: 110px; }
+/* One compact activity indicator within the coverage card. */
 .loading-notice {
+  font-size: 11px;
+  color: #355044;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid #d2d9cb;
+}
+.loading-notice:not(details), .loading-notice summary {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border: 1px solid #afbc9c;
-  border-radius: 8px;
-  background: #20362ef2;
-  color: #f0f3e6;
-  box-shadow: 0 3px 16px #0004;
-  font-size: 13px;
+  gap: 7px;
+  min-width: 0;
 }
+.loading-notice summary { cursor: pointer; list-style: none; }
+.loading-notice summary::-webkit-details-marker { display: none; }
+.loading-notice summary > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .loading-notice svg { flex-shrink: 0; }
-.loading-notice strong, .loading-notice small { display: block; }
-.loading-notice small { margin-top: 4px; font-size: 12px; }
-.loading-elapsed { margin-left: auto; font-variant-numeric: tabular-nums; }
+.loading-notice ul { margin: 8px 0 0; padding-left: 17px; font-size: 10px; }
+.loading-elapsed { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.terrain-status { min-width: 0; max-width: 390px; align-items: flex-start; }
+.terrain-status .status-dot { margin-top: 4px; flex-shrink: 0; }
+.terrain-status-content { min-width: 0; flex: 1; }
+.coverage-link, .active-overlay button {
+  border: 0;
+  background: none;
+  padding: 5px 0 0;
+  color: #254737;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+.coverage-link { text-decoration: underline; text-underline-offset: 3px; }
+.active-overlay { display: flex; gap: 10px; align-items: center; }
+.active-overlay button:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.active-overlay button:last-child { padding: 3px 7px; font-size: 20px; flex-shrink: 0; }
+@media (max-width: 600px) {
+  .terrain-status { max-width: min(100%, 330px); }
+  .map-bottom:has(.analyze-button) .terrain-status { max-width: 62%; }
+  .terrain-status small { font-size: 10px; max-width: none; }
+}
 @media (prefers-reduced-motion: reduce) { .loading-notice .spin { animation: none; } }
